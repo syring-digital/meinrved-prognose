@@ -1,0 +1,555 @@
+<title>Edersee-Prognosemodell</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<style>
+/* Layout: eine ruhige Lesespalte (Konzept), dazwischen breite Arbeitsflächen für Kennzahlen, Pegellatte und Fächer. */
+:root {
+  --bg: #f2f5f8; --surface: #ffffff; --sunken: #e8eef4; --fg: #0f1e2e; --muted: #536476; --line: #d3dde7;
+  --accent: #0b4f8a; --band: #5cabe6; --band-soft: #bcdcf4; --warn: #964600; --good: #1d7448; --bad: #b3261e;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0a131e; --surface: #111c29; --sunken: #0d1824; --fg: #e5ecf4; --muted: #95a6b8; --line: #223247;
+  --accent: #7dbff2; --band: #3a86c4; --band-soft: #1d3d5e; --warn: #ff9e0a; --good: #4cc38a; --bad: #ff6b60; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0a131e; --surface: #111c29; --sunken: #0d1824; --fg: #e5ecf4; --muted: #95a6b8; --line: #223247;
+  --accent: #7dbff2; --band: #3a86c4; --band-soft: #1d3d5e; --warn: #ff9e0a; --good: #4cc38a; --bad: #ff6b60; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--body); margin: 0; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 40px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 56px; }
+.prose { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--display); font-stretch: 82%; line-height: 1.1; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.6rem, 3.2vw, 2.1rem); font-weight: 750; }
+h3 { font-size: 1.15rem; font-weight: 700; font-stretch: 90%; }
+p { margin: 0; }
+.stack { display: grid; gap: 14px; }
+.stack-lg { display: grid; gap: 24px; }
+.eyebrow { font: 600 0.74rem/1 var(--body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+.small { font-size: 0.875rem; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: grid; gap: 18px; border-bottom: 1px solid var(--line); padding-bottom: 28px; }
+.status { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; background: var(--sunken); color: var(--muted); border: 1px solid var(--line); }
+.pill.warn { color: var(--warn); }
+.pill.good { color: var(--good); }
+.pill.bad { color: var(--bad); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+.stage-head { display: grid; gap: 8px; }
+.stage-no { font: 700 0.8rem/1 var(--mono); color: var(--muted); }
+
+/* Stufe 1 */
+.today { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 28px; align-items: start; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.kpi { background: var(--surface); padding: 16px 18px; display: grid; gap: 4px; align-content: start; }
+.kpi .label { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+.kpi .value { font: 600 1.7rem/1.15 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.kpi .value small { font-size: 0.9rem; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.kpi .sub { font-size: 0.82rem; color: var(--muted); }
+.neg { color: var(--bad); }
+.gauge-box { display: grid; gap: 8px; justify-items: center; }
+.gauge-box svg { width: 200px; height: auto; max-width: 100%; }
+
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--sunken); }
+tr:last-child td { border-bottom: 0; }
+td.r, th.r { text-align: right; }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; align-items: start; }
+.note { border-left: 3px solid var(--band); padding: 2px 0 2px 14px; }
+
+/* Stufe 2 */
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; }
+.ctl { display: grid; gap: 6px; min-width: 0; }
+.ctl label { font-size: 0.82rem; font-weight: 600; }
+.ctl .val { font: 500 0.82rem var(--mono); color: var(--accent); }
+.ctl-row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select { font: inherit; font-size: 0.9rem; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); width: 100%; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 0.88rem; }
+.check input { accent-color: var(--accent); width: 18px; height: 18px; }
+
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 10px 8px; position: relative; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 6px 8px 0; font-size: 0.8rem; color: var(--muted); }
+.sw { display: inline-block; width: 14px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+.readout { position: absolute; top: 14px; right: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: 0.78rem/1.45 var(--mono); pointer-events: none; }
+
+.dates { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.date-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 6px; align-content: start; }
+.date-card .what { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+.date-card .big { font: 600 1.45rem/1.15 var(--mono); letter-spacing: -0.02em; }
+.date-card .range { font-size: 0.82rem; color: var(--muted); }
+.prob { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.bar { height: 6px; border-radius: 3px; background: var(--sunken); overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--accent); }
+
+.regatta td .chip { display: inline-block; min-width: 54px; text-align: center; padding: 2px 8px; border-radius: 6px; font: 600 0.82rem var(--mono); }
+.chip.hi { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+.chip.mid { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.chip.lo { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+
+.skill td.c { text-align: center; font-family: var(--mono); }
+.sk0 { color: var(--muted); }
+.sk1 { color: var(--warn); font-weight: 600; }
+.sk2 { color: var(--good); font-weight: 700; }
+
+.case { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 12px; }
+
+ol.steps { margin: 0; padding-left: 1.3em; display: grid; gap: 8px; }
+ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
+.formula { font: 500 1rem/1.5 var(--mono); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; overflow-x: auto; }
+footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 0.82rem; color: var(--muted); display: grid; gap: 6px; }
+
+@media (max-width: 720px) {
+  .today { grid-template-columns: 1fr; }
+  .gauge-box { justify-items: start; }
+  .readout { position: static; margin: 6px 8px 0; display: inline-block; }
+}
+@media (prefers-reduced-motion: no-preference) { .bar > span { transition: width .25s ease; } }
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">Mein RVED · Konzept</div>
+  <h1>Edersee-Prognosemodell</h1>
+  <p class="prose">Wann wird der Edersee wieder voll, wann fällt er unter die Haltelinie 125, und lohnt sich die Regattaplanung für den Juli? Diese Seite zeigt die ersten beiden Stufen des Modells mit echten Daten. Die Saisonprognose rechnet direkt hier auf der Seite: Sie spielt die Zuflüsse von 26 Jahren nach und wendet die Abgaberegeln an, die sich aus den Daten der Talsperre ableiten lassen.</p>
+  <div class="status">
+    <span class="pill"><span class="dot"></span>Stand 19.10.2026, 07:00 Uhr</span>
+    <span class="pill warn"><span class="dot"></span>Entwurf, noch nicht in der App</span>
+    <span class="pill"><span class="dot"></span>Daten 1914–2026</span>
+  </div>
+</header>
+
+<section class="stack prose">
+  <h2>Warum diese Form</h2>
+  <p>Ich habe eine Webseite gewählt, weil ein Modell aus Wahrscheinlichkeiten erst verständlich wird, wenn man daran drehen kann. Startinhalt, Regattagrenze und Regeln lassen sich verstellen, und alle Zahlen ändern sich sofort. Derselbe Rechenkern kann später in die App übernommen werden: Die Zuflussdaten sind rund 170 KB groß, ein Durchlauf mit 26 Jahren dauert auf dem iPhone nur Millisekunden.</p>
+</section>
+
+<!-- STUFE 1 -->
+<section class="stack-lg" id="stufe1">
+  <div class="stage-head">
+    <div class="stage-no">Stufe 1</div>
+    <h2>Die Bilanz von heute</h2>
+    <p class="prose muted">Für die nächsten Tage braucht es kein Statistikmodell. Die Abgabe ist durch den WSA-Plan bekannt, der Zufluss ändert sich ohne Regen nur langsam. Daraus folgen Trend, Tage bis zur nächsten Marke und die Frage, wann Zufluss und Abgabe gleich groß sind.</p>
+  </div>
+
+  <div class="today">
+    <div class="stack">
+      <div class="kpis">
+        <div class="kpi"><span class="label">Inhalt</span><span class="value">25,40 <small>Mio. m³</small></span><span class="sub">12,7 % von 199,55 · Pegel 219,50 m ü. NN</span></div>
+        <div class="kpi"><span class="label">Zufluss</span><span class="value">2,04 <small>m³/s</small></span><span class="sub">7-Tage-Mittel 2,18 · Schmittlotheim 1,70 (19.10., 06:45)</span></div>
+        <div class="kpi"><span class="label">Abgabe</span><span class="value">3,0 <small>m³/s</small></span><span class="sub">reduzierte Mindestabgabe, WSA-Plan bis Fr 23.10.</span></div>
+        <div class="kpi"><span class="label">Bilanz</span><span class="value neg">−0,07 <small>Mio. m³/Tag</small></span><span class="sub">rund −2 cm am Tag</span></div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Marke</th><th class="r">Inhalt</th><th class="r">Pegel</th><th class="r">Abstand</th><th>Bedeutung</th></tr></thead>
+          <tbody>
+            <tr><td>Vollstau</td><td class="r num">199,55</td><td class="r num">244,97 m</td><td class="r num">+174,2</td><td>Ziel im Frühjahr</td></tr>
+            <tr><td>Haltelinie 125</td><td class="r num">125,0</td><td class="r num">237,30 m</td><td class="r num">+99,6</td><td>Sparbetrieb nach RVED-Konzept</td></tr>
+            <tr><td>Normalwasserabgabe</td><td class="r num">40,0</td><td class="r num">223,27 m</td><td class="r num">+14,6</td><td>darunter nur Mindestabgabe 6 m³/s</td></tr>
+            <tr><td>Reduzierte Mindestabgabe</td><td class="r num">29,0</td><td class="r num">220,51 m</td><td class="r num">+3,6</td><td>darunter 3 m³/s (mit RP Kassel)</td></tr>
+            <tr><td>Absenkziel</td><td class="r num">20,0</td><td class="r num">217,85 m</td><td class="r num">−5,4</td><td>ohne Regen frühestens Anfang Januar</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="gauge-box">
+      <svg id="gauge" viewBox="0 0 200 440" role="img" aria-label="Pegellatte mit aktuellem Stand 219,50 Meter und den Marken"></svg>
+      <span class="small muted">Pegellatte, m ü. NN</span>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="stack">
+      <h3>Die nächsten fünf Tage</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Tag</th><th class="r">Zufluss</th><th class="r">Abgabe</th><th class="r">Inhalt</th><th class="r">Pegel</th></tr></thead>
+          <tbody>
+            <tr><td>Di 20.10.</td><td class="r num">2,10</td><td class="r num">3,0</td><td class="r num">25,32</td><td class="r num">219,48</td></tr>
+            <tr><td>Mi 21.10.</td><td class="r num">2,05</td><td class="r num">3,0</td><td class="r num">25,24</td><td class="r num">219,45</td></tr>
+            <tr><td>Do 22.10.</td><td class="r num">2,00</td><td class="r num">3,0</td><td class="r num">25,15</td><td class="r num">219,43</td></tr>
+            <tr><td>Fr 23.10.</td><td class="r num">1,95</td><td class="r num">3,0</td><td class="r num">25,06</td><td class="r num">219,40</td></tr>
+            <tr><td>Sa 24.10.</td><td class="r num">1,90</td><td class="r num">3,0</td><td class="r num">24,97</td><td class="r num">219,37</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="small muted">Abgabe aus der Tabelle „Abgabenplanung Edertalsperre“ im WSA-PDF, Zufluss als langsam abklingende Kurve ohne Regen. In Stufe 3 kommt hier der DWD-Niederschlag dazu.</p>
+      <p class="note small">Der Pegel schwankt im Tagesverlauf um etwa 5 cm, vermutlich durch den Pumpspeicherbetrieb Waldeck. Am 19.10. stand er um 07:00 Uhr bei 219,50 m, um Mitternacht bei 219,55 m, ohne dass mehr Wasser zugeflossen wäre. Trends rechnet Stufe 1 deshalb nur aus Werten zur gleichen Uhrzeit oder aus Tagesmitteln. Außerdem prüft sie, wie alt ein Wert ist: Schmittlotheim lieferte zuletzt 17 Stunden lang keinen neuen Wert.</p>
+    </div>
+    <div class="stack">
+      <h3>Wann gleichen sich Zufluss und Abgabe aus?</h3>
+      <p>Der See fällt, solange weniger als 3 m³/s zufließen. Heute fehlen dafür rund 0,8 m³/s, also ein ergiebiger Regen im Einzugsgebiet. In der Saisonprognose unten passiert das <strong id="wende-txt">…</strong></p>
+      <p class="note small">Schmittlotheim liefert in diesen Wochen fast genau den gesamten Zufluss (Faktor 1,03 über 30 Tage). Der 15-Minuten-Wert von Pegelonline ist damit eine gute Live-Messung, deutlich aktueller als der Tageswert um 07:00 Uhr.</p>
+      <h3>Datenquellen für Stufe 1</h3>
+      <ul class="plain small">
+        <li>Pegelonline <code>EDERTALSPERRE</code> (Stauspiegel, 15 Min.) und <code>SCHMITTLOTHEIM</code> (Abfluss Q, 15 Min.)</li>
+        <li>WSA-PDF: Abgabenplanung für 5 Tage, Statustext, langjähriges Mittel (heute 50,3 Mio. m³ darunter)</li>
+        <li>wasserstand.edersee.me: Tageswerte für Inhalt, Zufluss und Abfluss</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- STUFE 2 -->
+<section class="stack-lg" id="stufe2">
+  <div class="stage-head">
+    <div class="stage-no">Stufe 2</div>
+    <h2>Saisonprognose aus 26 Jahren</h2>
+    <p class="prose muted">Das Modell startet beim heutigen Inhalt und spielt für jedes Jahr von 2000 bis 2025 den damaligen Zufluss ab dem 19. Oktober durch. Die Weser-Stützung im Sommer stammt ebenfalls aus dem jeweiligen Jahr, damit trockene Jahre trocken bleiben. Die Abgaberegeln gelten für alle Läufe gleich. So entstehen 26 mögliche Verläufe. Ihr Anteil ergibt die Wahrscheinlichkeit.</p>
+  </div>
+
+  <div class="controls">
+    <div class="ctl">
+      <div class="ctl-row"><label for="v0">Startinhalt</label><span class="val" id="v0-val"></span></div>
+      <input type="range" id="v0" min="15" max="199" step="0.5" value="25.4">
+      <span class="small muted">Was wäre, wenn der See heute anders stünde?</span>
+    </div>
+    <div class="ctl">
+      <div class="ctl-row"><label for="thr">Regattagrenze</label><span class="val" id="thr-val"></span></div>
+      <input type="range" id="thr" min="222" max="240" step="0.25" value="228">
+      <span class="small muted">2026: am 11.07. bei 229,9 m gesegelt, am 18.07. bei 225,9 m abgesagt</span>
+    </div>
+    <div class="ctl">
+      <label for="pool">Zuflussjahre</label>
+      <select id="pool">
+        <option value="2000">2000–2025 (26 Jahre, empfohlen)</option>
+        <option value="1980">1980–2025 (46 Jahre)</option>
+      </select>
+      <span class="small muted">Ältere Jahre waren nasser und unterschätzen heutige Sommer.</span>
+    </div>
+    <div class="ctl">
+      <span class="small" style="font-weight:600">Regeln</span>
+      <label class="check"><input type="checkbox" id="reduced" checked> Unter 29 Mio. m³ nur 3 m³/s</label>
+      <span class="small muted">So 2026 mit dem RP Kassel abgestimmt. Ohne Haken gilt die Mindestabgabe von 6 m³/s.</span>
+    </div>
+  </div>
+
+  <div class="chart" id="fan-box">
+    <svg id="fan" viewBox="0 0 1000 420" role="img" aria-label="Fächer der möglichen Verläufe bis Oktober 2027"></svg>
+    <div class="readout" id="readout" hidden></div>
+    <div class="chart-legend">
+      <span><span class="sw" style="background:var(--band-soft)"></span>8 von 10 Verläufen</span>
+      <span><span class="sw" style="background:var(--band)"></span>die mittlere Hälfte</span>
+      <span><span class="sw" style="background:var(--accent);height:3px"></span>Median</span>
+      <span><span class="sw" style="background:var(--fg);height:2px"></span>gemessen seit Oktober 2025</span>
+    </div>
+  </div>
+
+  <div class="dates" id="dates"></div>
+
+  <div class="two">
+    <div class="stack">
+      <h3>Regatten 2027</h3>
+      <p class="small muted">Beispieltermine: Kalender 2026 auf denselben Wochentag 2027 verschoben, Feiertagsregatten auf den Feiertag 2027. Die Wahrscheinlichkeit gilt für einen Pegel über der eingestellten Regattagrenze. Im Rückblick-Test war sie zu optimistisch, siehe unten.</p>
+      <div class="tbl-wrap regatta"><table><thead><tr><th>Termin</th><th>Regatta</th><th class="r">segelbar</th></tr></thead><tbody id="regatta"></tbody></table></div>
+    </div>
+    <div class="stack">
+      <h3>Was jedes Zuflussjahr bedeuten würde</h3>
+      <p class="small muted">Jede Zeile ist ein vollständiger Lauf: das Wetter des Jahres, angewendet auf den heutigen See.</p>
+      <div class="tbl-wrap"><table><thead><tr><th>Wetter wie</th><th>Vollstau</th><th class="r">Max.</th><th class="r">15.07.</th><th class="r">01.09.</th></tr></thead><tbody id="traces"></tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- BEWERTUNG -->
+<section class="stack-lg" id="test">
+  <div class="stage-head">
+    <div class="stage-no">Rückblick-Test</div>
+    <h2>Wie gut ist das Modell?</h2>
+    <p class="prose muted">Ich habe das Modell für jedes Jahr von 2005 bis 2026 so gestartet, als wüsste es nichts über die Zukunft. Das jeweilige Jahr fehlt dabei im Pool. Anschließend habe ich die Vorhersage mit dem echten Verlauf verglichen.</p>
+  </div>
+
+  <div class="two">
+    <div class="stack">
+      <h3>Winter: Regeln stimmen. Sommer: der Weser-Bedarf entscheidet</h3>
+      <p>Mit den echten Zuflüssen eines Jahres trifft das Regelwerk den Inhalt am 1. Mai im Mittel auf <strong class="num">3,6</strong> Mio. m³, auch wenn es die echten Abgaben nicht kennt (<span class="num">3,9</span>). Im Sommer hängt alles am Stützbedarf der Weser: Mit den tatsächlichen Abgaben des Jahres liegt der Fehler am 1. Juli bei <strong class="num">7,7</strong> und am 1. September bei <strong class="num">6,6</strong> Mio. m³. Mit festen Monatswerten wären es <span class="num">18</span> und <span class="num">34</span> (2005–2024).</p>
+      <h3>Abgeleitete Regeln</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Lage</th><th>Abgabe im Modell</th></tr></thead>
+        <tbody>
+          <tr><td>unter 29 Mio. m³</td><td>3 m³/s (Schalter oben)</td></tr>
+          <tr><td>unter 40 Mio. m³</td><td>6 m³/s, im Winter (Nov.–Feb.) 4 m³/s wie seit 2018</td></tr>
+          <tr><td>Nov.–Apr. über der Leitlinie</td><td>bis zur Linie abgeben, Überschuss in ~5 Tagen abbauen, max. 120 m³/s</td></tr>
+          <tr><td>Nov.–Mai darunter</td><td>4–12 m³/s bzw. Abgabe des Spurjahres (ab 2003)</td></tr>
+          <tr><td>Juni–Okt. (Weser-Stützung)</td><td>Abgabe des Spurjahres, 6–40 m³/s</td></tr>
+          <tr><td>über Vollstau</td><td>Hochwasserentlastung</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">Leitlinie im Winter (aus dem Abgabeverhalten 2005–2026): 1. Dez. 110 · 1. Jan. 140 · 1. Feb. 160 · 1. März 175 · 1. Apr. 192 · Ende April Vollstau. Darüber gibt das WSA kräftig ab, um Hochwasserschutzraum frei zu halten.</p>
+    </div>
+    <div class="stack">
+      <h3>Wahrscheinlichkeiten gegen reine Statistik</h3>
+      <p class="small">Verbesserung gegenüber der einfachen Häufigkeit in den Saisons 2001–2026 (Brier-Skill). 0 bedeutet kein Vorteil, 1 eine perfekte Vorhersage. Klein darunter: der Bereich, in dem der Wert mit 80 % Wahrscheinlichkeit liegt. Grün oder orange sind nur Werte, die sicher über 0 liegen.</p>
+      <div class="tbl-wrap skill"><table><thead id="skill-h"></thead><tbody id="skill"></tbody></table></div>
+      <p class="small muted">Vom Oktober aus kennt niemand den Winterregen, deshalb liegt das Modell dort auf dem Niveau der Statistik. Belastbar besser ist es für den Vollstau ab Mai und für Regatten im Juli ab Februar. Alles andere liegt im Rauschen von 21 Jahren.</p>
+      <p class="small" id="calib"></p>
+    </div>
+  </div>
+
+  <div class="stack">
+    <h3>Nach der Prüfung am 20.10.2026 korrigiert</h3>
+    <ul class="plain small">
+      <li>Winter-Mindestabgabe: Seit 2018 gibt das WSA bei niedrigem See von November bis Februar nur 3–4 m³/s ab (2018, 2020, 2022, 2025), nicht 6. Das Modell füllte den See bisher zu langsam.</li>
+      <li>Hochwasser: Das WSA hält Hochwasser erst zurück und senkt danach mit 80–140 m³/s ab (2003, 2011, 2023/24). Die Grenze im Modell lag bei 60 m³/s und ist jetzt 120.</li>
+      <li>Rechenfehler behoben: Über der Winter-Leitlinie hat das Modell bei hohem Zufluss etwas zu viel abgegeben.</li>
+      <li>Bewertung: einheitlicher Vergleichsmaßstab, dazu Unsicherheitsbereiche. Wahrscheinlichkeiten über 95 % oder unter 5 % werden nicht mehr als exakte Zahl gezeigt, weil 26 Spuren dafür nicht reichen.</li>
+      <li>Regattatermine an Himmelfahrt, Pfingsten und Fronleichnam auf die Feiertage 2027 gelegt.</li>
+      <li>Geprüft und in Ordnung: Inhaltskurve (seit 2004 im Mittel 0,02 Mio. m³ Abweichung zu edersee.me), Live-Pegel gegen Tageswert (identisch um 07:00 Uhr), Rechenkern JavaScript gegen Python (gleiche Ergebnisse).</li>
+    </ul>
+  </div>
+
+  <div class="case">
+    <div class="eyebrow">Fallbeispiel 2026</div>
+    <h3>Die Absagen im Juli hätte das Modell nicht vorhergesehen</h3>
+    <p id="case-txt"></p>
+    <div class="tbl-wrap"><table><thead><tr><th>Prognose vom</th><th class="r">Inhalt beim Start</th><th class="r">Median 18.07.</th><th class="r">10 % unter</th><th class="r">tatsächlich</th></tr></thead><tbody id="case"></tbody></table></div>
+    <p class="small">Daraus folgt die wichtigste Aufgabe für Stufe 3: Der Stützbedarf der Weser muss aus den Pegeln in Hann. Münden, Fulda und Werra und der DWD-Prognose berechnet werden, statt ihn nur aus früheren Jahren zu übernehmen. Für die jeweils nächsten 5 Tage ist er durch den WSA-Plan aus Stufe 1 bereits bekannt.</p>
+  </div>
+
+  <div class="stack">
+    <h3>Der See verliert im Sommer mehr als früher</h3>
+    <p class="prose">Abnahme des Inhalts vom 1. Juni bis 1. August. In den 1980er- und 1990er-Jahren waren es meist 20–45 Mio. m³, seit 2015 oft 75–125 Mio. m³. Gleichzeitig ist der mittlere Zufluss gesunken: <span id="decades"></span>. Deshalb nutzt das Modell standardmäßig nur die Jahre ab 2000.</p>
+    <div class="chart"><svg id="dd" viewBox="0 0 1000 260" role="img" aria-label="Sommerabstau je Jahr 1980 bis 2026"></svg></div>
+  </div>
+</section>
+
+<section class="stack prose" id="weiter">
+  <h2>Grenzen und nächste Schritte</h2>
+  <ul class="plain">
+    <li><strong>Wetter:</strong> Stufe 2 kennt keine Wettervorhersage. Die DWD-Prognosen (ICON, MOSMIX, Ensemble) kommen in Stufe 3 für die ersten 1–4 Wochen dazu.</li>
+    <li><strong>Weser-Stützung:</strong> Größte offene Baustelle, siehe 2026.</li>
+    <li><strong>Ausnahmen:</strong> Absprachen wie die 3 m³/s sind Entscheidungen. Das Modell kann sie nur als Schalter abbilden.</li>
+    <li><strong>Daten:</strong> Die Tageswerte stammen von wasserstand.edersee.me, einer privaten Seite. Bevor das Modell in die App kommt oder diese Seite geteilt wird, ist dort eine Erlaubnis nötig. Alternativ lassen sich die Werte aus Pegelonline, BfG und WSV neu aufbauen.</li>
+  </ul>
+  <ol class="steps">
+    <li>Stufe 1 und 2 in die App übernehmen: Prognose-Tab mit Kennzahlen, Fächer und Wahrscheinlichkeiten</li>
+    <li>Stufe 3: DWD-Niederschlag und Niederschlag-Abfluss-Modell für Schmittlotheim, Stützbedarf der Weser</li>
+    <li>Stufe 4: Regatta-Ampel mit echten Clubgrenzen, Was-wäre-wenn für die Haltelinie 125</li>
+  </ol>
+</section>
+
+<footer>
+  <span>Quellen: WSV Pegelonline, WSA Weser (Wasserstandsvorhersage Oberweser), wasserstand.edersee.me (Tageswerte 1914–2026), Höhen-Inhalt-Tabelle „Inhalt neu“ (Vermessung 2003), WSGE-Regattakalender 2026.</span>
+  <span>Alle Angaben ohne Gewähr. Konzeptentwurf für Mein RVED, nicht vom RVED oder WSA geprüft.</span>
+</footer>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+__MODEL__
+</script>
+<script>
+(() => {
+  const DATA = JSON.parse(document.getElementById('data').textContent);
+  Model.init(DATA);
+  const $ = id => document.getElementById(id);
+  const NS = 'http://www.w3.org/2000/svg';
+  const fmt = (v, d = 1) => v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const MON = ['Jan.', 'Feb.', 'März', 'Apr.', 'Mai', 'Juni', 'Juli', 'Aug.', 'Sep.', 'Okt.', 'Nov.', 'Dez.'];
+  const dstr = (t, year) => { const [y, m, d] = Model.ymd(t); return `${d}. ${MON[m - 1]}${year ? ' ' + y : ''}`; };
+  const pctStr = p => p > 0.95 ? 'über 95 %' : p < 0.05 ? 'unter 5 %' : `${Math.round(p * 100)} %`;
+  const START = '2026-10-19', H = 365;
+  const [sy, sm, sd] = START.split('-').map(Number);
+  const T0 = Model.utc(sy, sm, sd), DAY = Model.DAY;
+  const kOf = iso => Math.round((Model.utc(...iso.split('-').map(Number)) - T0) / DAY);
+  const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+
+  // Pegellatte
+  (function gauge() {
+    const svg = $('gauge'), top = 20, bot = 420, hi = 246, lo = 215;
+    const y = h => top + (hi - h) / (hi - lo) * (bot - top);
+    el('rect', { x: 62, y: top, width: 34, height: bot - top, rx: 3, fill: 'var(--surface)', stroke: 'var(--line)' }, svg);
+    el('rect', { x: 62, y: y(219.5), width: 34, height: bot - y(219.5), fill: 'var(--band)', opacity: 0.55 }, svg);
+    for (let h = lo; h <= hi; h++) {
+      const yy = y(h);
+      if (h % 2 === 0) el('rect', { x: 62, y: yy, width: 14, height: (bot - top) / (hi - lo), fill: 'var(--fg)', opacity: 0.75 }, svg);
+      if (h % 5 === 0) { const t = el('text', { x: 54, y: yy + 4, 'text-anchor': 'end', 'font-size': 11, fill: 'var(--muted)', 'font-family': 'var(--mono)' }, svg); t.textContent = h; }
+    }
+    const marks = [[244.97, 'Vollstau', 'var(--accent)'], [237.30, 'Haltelinie 125', 'var(--warn)'], [223.27, '40 Mio.', 'var(--muted)'], [220.51, '29 Mio.', 'var(--muted)'], [217.85, 'Absenkziel', 'var(--muted)']];
+    for (const [h, lab, c] of marks) {
+      el('line', { x1: 58, x2: 104, y1: y(h), y2: y(h), stroke: c, 'stroke-width': 1.5 }, svg);
+      const t = el('text', { x: 108, y: y(h) + 4, 'font-size': 11, fill: c, 'font-family': 'var(--body)', 'font-weight': 600 }, svg); t.textContent = lab;
+    }
+    el('line', { x1: 50, x2: 104, y1: y(219.5), y2: y(219.5), stroke: 'var(--accent)', 'stroke-width': 3 }, svg);
+    const t = el('text', { x: 108, y: y(219.5) + 18, 'font-size': 12, fill: 'var(--fg)', 'font-family': 'var(--mono)', 'font-weight': 600 }, svg); t.textContent = '219,50 heute';
+  })();
+
+  const REG = [['2027-04-24', 'Nationalparkregatta'], ['2027-05-06', 'Bringhausen-Cup (Himmelfahrt)'], ['2027-05-16', 'Blaues Band des SCE (Pfingsten)'], ['2027-05-29', '4. Lauf Ederseemeisterschaft'], ['2027-05-27', 'German Open Soling (Fronleichnam)'], ['2027-06-12', 'Edersee-Cup Fighter'], ['2027-06-19', 'WSVR-Cup'], ['2027-06-26', 'Edersee-Cup J22'], ['2027-07-03', 'Freundschaftsregatta'], ['2027-07-10', 'Edertal-Cup'], ['2027-07-17', 'SCE-Race'], ['2027-07-24', 'Blaues Band der SSGE'], ['2027-08-14', 'Jugendabschlussregatta'], ['2027-08-21', 'Spaßregatta ESV ’86']];
+
+  function compute() {
+    const V0 = +$('v0').value, thrL = +$('thr').value, thrV = Model.volume(thrL);
+    const pool = [+$('pool').value, 2025], reduced = $('reduced').checked;
+    $('v0-val').textContent = `${fmt(V0)} Mio. m³ · ${fmt(Model.level(V0), 2)} m`;
+    $('thr-val').textContent = `${fmt(thrL, 2)} m · ${fmt(thrV)} Mio. m³`;
+    const { runs } = Model.ensemble(V0, START, H, pool, { reduced });
+    const n = runs.length;
+    const fan = [];
+    for (let k = 0; k < H; k++) { const xs = runs.map(r => r.vol[k]); fan.push([0.1, 0.25, 0.5, 0.75, 0.9].map(p => Model.pct(xs, p))); }
+    const firstK = (r, f, a = 0, b = H - 1) => { for (let k = a; k <= Math.min(b, H - 1); k++) if (f(r, k)) return k; return null; };
+    const mar1 = kOf('2027-03-01'), sep30 = kOf('2027-09-30'), may1 = kOf('2027-05-01'), aug1 = kOf('2027-08-01');
+    const ev = runs.map(r => {
+      let wende = null;
+      for (let k = 0; k + 7 <= H; k++) { let s = 0; for (let j = k; j < k + 7; j++) s += r.qin[j] - r.qout[j]; if (s > 0) { wende = k; break; } }
+      let mk = 0; for (let k = 1; k < 200; k++) if (r.vol[k] < r.vol[mk]) mk = k;
+      let mx = 0; for (let k = mar1; k <= sep30; k++) mx = Math.max(mx, r.vol[k]);
+      return {
+        year: r.year, wende, tiefK: mk, tiefV: r.vol[mk],
+        u40: V0 >= 40 ? 0 : firstK(r, (r, k) => r.vol[k] >= 40),
+        u125: V0 >= 125 ? 0 : firstK(r, (r, k) => r.vol[k] >= 125),
+        voll: firstK(r, (r, k) => r.vol[k] >= 197, mar1, sep30), max: mx,
+        unter125: firstK(r, (r, k) => r.vol[k] < 125, may1),
+        jul15: r.vol[kOf('2027-07-15')], sep1: r.vol[kOf('2027-09-01')]
+      };
+    });
+    render({ V0, thrV, thrL, runs, fan, ev, n });
+  }
+
+  function dateStats(ks) {
+    const got = ks.filter(k => k != null).sort((a, b) => a - b);
+    if (!got.length) return null;
+    const q = p => got[Math.round((got.length - 1) * p)];
+    return { p: got.length, med: T0 + q(0.5) * DAY, lo: T0 + q(0.1) * DAY, hi: T0 + q(0.9) * DAY };
+  }
+
+  function card(what, big, range, p) {
+    return `<div class="date-card"><span class="what">${what}</span><span class="big">${big}</span><span class="range">${range}</span>${p == null ? '' : `<div class="prob"><div class="bar"><span style="width:${Math.round(p * 100)}%"></span></div><span class="num small">${pctStr(p)}</span></div>`}</div>`;
+  }
+
+  function render({ V0, thrV, thrL, runs, fan, ev, n }) {
+    // Kennkarten
+    const w = dateStats(ev.map(e => e.wende));
+    const w14 = ev.filter(e => e.wende != null && e.wende <= 14).length / n;
+    $('wende-txt').textContent = w ? `in ${pctStr(w14)} der Verläufe innerhalb von 14 Tagen, im Median am ${dstr(w.med, true)}.` : 'in keinem Verlauf.';
+    const minV = Math.min(...ev.map(e => e.tiefV));
+    const s40 = dateStats(ev.map(e => e.u40)), s125 = dateStats(ev.map(e => e.u125)), sv = dateStats(ev.map(e => e.voll)), su = dateStats(ev.map(e => e.unter125));
+    const pJul = ev.filter(e => e.jul15 >= thrV).length / n;
+    const span = s => `10–90 %: ${dstr(s.lo)} bis ${dstr(s.hi, true)}`;
+    let html = '';
+    html += card('Tiefster Stand bis Frühjahr', `${fmt(minV)} Mio. m³`, `niedrigster Wert aller ${n} Verläufe · ${fmt(Model.level(minV), 2)} m`, null);
+    html += V0 < 40 && s40 ? card('Wieder über 40 Mio. m³ (Normalabgabe)', dstr(s40.med, true), span(s40), s40.p / n) : '';
+    html += V0 < 125 && s125 ? card('Über die Haltelinie 125', dstr(s125.med, true), span(s125), s125.p / n) : '';
+    html += sv ? card('Vollstau 2027 erreicht', pctStr(sv.p / n), `wenn ja, im Median am ${dstr(sv.med)} · ${span(sv)}`, sv.p / n) : card('Vollstau 2027 erreicht', '0 %', 'in keinem Verlauf', 0);
+    html += su ? card('Unter 125 Mio. m³ vor dem 1. August', pctStr(ev.filter(e => e.unter125 != null && e.unter125 < kOf('2027-08-01')).length / n), `erster Tag unter 125 im Median: ${dstr(su.med, true)}`, ev.filter(e => e.unter125 != null && e.unter125 < kOf('2027-08-01')).length / n) : '';
+    html += card(`Am 15. Juli über ${fmt(thrL, 2)} m`, pctStr(pJul), `Median am 15.07.: ${fmt(Model.pct(ev.map(e => e.jul15), 0.5))} Mio. m³`, pJul);
+    $('dates').innerHTML = html;
+
+    // Regatten
+    $('regatta').innerHTML = REG.map(([iso, name]) => {
+      const k = kOf(iso), p = runs.filter(r => r.vol[k] >= thrV).length / n;
+      const c = p >= 0.8 ? 'hi' : p >= 0.5 ? 'mid' : 'lo';
+      const [, m, d] = iso.split('-');
+      return `<tr><td class="num">${d}.${m}.</td><td>${name}</td><td class="r"><span class="chip ${c}">${pctStr(p)}</span></td></tr>`;
+    }).join('');
+
+    // Spurjahre
+    $('traces').innerHTML = ev.map(e => `<tr><td class="num">${e.year}/${String(e.year + 1).slice(2)}</td><td>${e.voll != null ? dstr(T0 + e.voll * DAY) : '<span class="muted">nicht voll</span>'}</td><td class="r num">${fmt(e.max)}</td><td class="r num" style="color:${e.jul15 >= thrV ? 'var(--fg)' : 'var(--bad)'}">${fmt(e.jul15)}</td><td class="r num">${fmt(e.sep1)}</td></tr>`).join('');
+
+    drawFan(fan, thrV);
+  }
+
+  // Fächer
+  const X0 = Model.utc(2025, 10, 19), X1 = T0 + (H - 1) * DAY;
+  const PL = 52, PR = 16, PT = 14, PB = 34, W = 1000, HH = 420;
+  const sx = t => PL + (t - X0) / (X1 - X0) * (W - PL - PR);
+  const sy2 = v => PT + (1 - v / 200) * (HH - PT - PB);
+  let FAN = null;
+  function drawFan(fan, thrV) {
+    FAN = fan;
+    const svg = $('fan'); svg.innerHTML = '';
+    for (let v = 0; v <= 200; v += 50) {
+      el('line', { x1: PL, x2: W - PR, y1: sy2(v), y2: sy2(v), stroke: 'var(--line)' }, svg);
+      const t = el('text', { x: PL - 8, y: sy2(v) + 4, 'text-anchor': 'end', 'font-size': 12, fill: 'var(--muted)', 'font-family': 'var(--mono)' }, svg); t.textContent = v;
+    }
+    const ax = el('text', { x: 12, y: PT + 10, 'font-size': 11, fill: 'var(--muted)' }, svg); ax.textContent = 'Mio. m³';
+    for (let y = 2025; y <= 2027; y++) for (const m of [1, 4, 7, 10]) {
+      const t = Model.utc(y, m, 1); if (t < X0 || t > X1) continue;
+      el('line', { x1: sx(t), x2: sx(t), y1: PT, y2: HH - PB, stroke: 'var(--line)', 'stroke-dasharray': m === 1 ? '' : '2 4' }, svg);
+      const tx = el('text', { x: sx(t), y: HH - PB + 18, 'text-anchor': 'middle', 'font-size': 12, fill: 'var(--muted)' }, svg); tx.textContent = m === 1 ? String(y) : MON[m - 1];
+    }
+    const lines = [[199.55, 'Vollstau', 'var(--accent)'], [125, 'Haltelinie 125', 'var(--warn)'], [thrV, 'Regattagrenze', 'var(--good)'], [40, '40', 'var(--muted)']];
+    for (const [v, lab, c] of lines) {
+      el('line', { x1: PL, x2: W - PR, y1: sy2(v), y2: sy2(v), stroke: c, 'stroke-width': 1.2, 'stroke-dasharray': '6 4' }, svg);
+      const t = el('text', { x: W - PR - 4, y: sy2(v) - 5, 'text-anchor': 'end', 'font-size': 11, fill: c, 'font-weight': 600 }, svg); t.textContent = lab;
+    }
+    const band = (i, j, fill) => {
+      let d = ''; for (let k = 0; k < fan.length; k++) d += (k ? 'L' : 'M') + sx(T0 + k * DAY).toFixed(1) + ',' + sy2(fan[k][i]).toFixed(1);
+      for (let k = fan.length - 1; k >= 0; k--) d += 'L' + sx(T0 + k * DAY).toFixed(1) + ',' + sy2(fan[k][j]).toFixed(1);
+      el('path', { d: d + 'Z', fill }, svg);
+    };
+    band(0, 4, 'var(--band-soft)'); band(1, 3, 'var(--band)');
+    let d = ''; for (let k = 0; k < fan.length; k++) d += (k ? 'L' : 'M') + sx(T0 + k * DAY).toFixed(1) + ',' + sy2(fan[k][2]).toFixed(1);
+    el('path', { d, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2.5 }, svg);
+    let h = ''; DATA.recent.forEach(([iso, v], i) => { const t = Model.utc(...iso.split('-').map(Number)); h += (i ? 'L' : 'M') + sx(t).toFixed(1) + ',' + sy2(v).toFixed(1); });
+    el('path', { d: h, fill: 'none', stroke: 'var(--fg)', 'stroke-width': 2 }, svg);
+    el('circle', { cx: sx(T0), cy: sy2(+$('v0').value), r: 5, fill: 'var(--accent)', stroke: 'var(--surface)', 'stroke-width': 2 }, svg);
+    const tl = el('text', { x: sx(T0) + 8, y: HH - PB - 8, 'font-size': 11, fill: 'var(--muted)' }, svg); tl.textContent = 'heute';
+    el('line', { x1: sx(T0), x2: sx(T0), y1: PT, y2: HH - PB, stroke: 'var(--fg)', opacity: 0.35 }, svg);
+    el('line', { id: 'cursor', x1: 0, x2: 0, y1: PT, y2: HH - PB, stroke: 'var(--fg)', 'stroke-width': 1, opacity: 0, 'pointer-events': 'none' }, svg);
+    el('rect', { id: 'hit', x: sx(T0), y: PT, width: W - PR - sx(T0), height: HH - PT - PB, fill: 'transparent' }, svg);
+    const hit = $('hit'), ro = $('readout'), cur = $('cursor');
+    const move = ev => {
+      const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+      const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+      const t = X0 + (p.x - PL) / (W - PL - PR) * (X1 - X0), k = Math.max(0, Math.min(FAN.length - 1, Math.round((t - T0) / DAY)));
+      const f = FAN[k]; cur.setAttribute('x1', sx(T0 + k * DAY)); cur.setAttribute('x2', sx(T0 + k * DAY)); cur.setAttribute('opacity', 0.5);
+      ro.hidden = false;
+      ro.innerHTML = `<strong>${dstr(T0 + k * DAY, true)}</strong><br>Median ${fmt(f[2])} Mio. m³<br>8 von 10: ${fmt(f[0])} – ${fmt(f[4])}`;
+    };
+    hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
+    hit.addEventListener('pointerleave', () => { ro.hidden = true; cur.setAttribute('opacity', 0); });
+  }
+
+  // Bewertung
+  const LBL = { voll: 'Vollstau bis 1. Juni', regatta: 'Über 63 Mio. m³ am 15. Juli', unter125: 'Unter 125 am 1. August' };
+  $('skill-h').innerHTML = '<tr><th>Ereignis · Prognose vom</th>' + DATA.skill.voll.map(r => `<th class="r">${r[0]}</th>`).join('') + '</tr>';
+  const sg = v => (v >= 0 ? '+' : '−') + fmt(Math.abs(v), 2);
+  $('skill').innerHTML = Object.keys(LBL).map(k => `<tr><td>${LBL[k]}</td>${DATA.skill[k].map(([, s, lo, hi]) => { const c = lo > 0 && s >= 0.2 ? 'sk2' : lo > 0 ? 'sk1' : 'sk0'; return `<td class="c ${c}">${sg(s)}<br><span class="muted small" style="font-weight:400">${sg(lo)} … ${sg(hi)}</span></td>`; }).join('')}</tr>`).join('');
+  const cb = DATA.calib;
+  $('calib').textContent = `Treffen die Prozentwerte im Mittel? Vollstau: vorhergesagt ${Math.round(cb.voll[0] * 100)} %, eingetreten ${Math.round(cb.voll[1] * 100)} %. Bei niedrigem Oktoberstand wie heute wurde der See in 7 von 11 Jahren voll, das Modell sagte jeweils rund 65 %. Regatta im Juli: vorhergesagt ${Math.round(cb.regatta[0] * 100)} %, eingetreten ${Math.round(cb.regatta[1] * 100)} %. Hier ist das Modell zu optimistisch, weil Sommer wie 2017 und 2026 trockener waren als alle Jahre im Pool.`;
+
+  const C = DATA.case2026;
+  const cd = iso => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
+  $('case').innerHTML = C.map(r => `<tr><td class="num">${cd(r.start)}</td><td class="r num">${fmt(r.V0)}</td><td class="r num">${fmt(r.jul18.med)}</td><td class="r num">${fmt(r.jul18.p10)}</td><td class="r num" style="color:var(--bad)">${fmt(r.jul18.ist)}</td></tr>`).join('');
+  const c6 = C.find(r => r.start === '2026-06-01');
+  $('case-txt').textContent = `Am 18. Juli 2026 lag der See bei ${fmt(c6.jul18.ist)} Mio. m³, und das SCE-Race fiel aus. Selbst vom 1. Juni aus hätte das Modell im Median ${fmt(c6.jul18.med)} Mio. m³ erwartet, mit nur 10 % Risiko unter ${fmt(c6.jul18.p10)}. Der Grund: Im Juli 2026 gab das WSA 30 bis 39 m³/s ab, um die Weser zu stützen, mehr als in fast allen früheren Sommern.`;
+
+  $('decades').textContent = DATA.inflow_decade.filter(d => d[0] >= 1960).map(d => `${d[0]}er ${fmt(d[1])} m³/s`).join(', ');
+
+  (function drawdown() {
+    const svg = $('dd'), data = DATA.drawdown, W2 = 1000, H2 = 260, L = 44, R = 10, T = 12, B = 28;
+    const max = 130, bw = (W2 - L - R) / data.length;
+    const yy = v => T + (1 - Math.max(v, 0) / max) * (H2 - T - B);
+    for (let v = 0; v <= 120; v += 40) {
+      el('line', { x1: L, x2: W2 - R, y1: yy(v), y2: yy(v), stroke: 'var(--line)' }, svg);
+      const t = el('text', { x: L - 6, y: yy(v) + 4, 'text-anchor': 'end', 'font-size': 12, fill: 'var(--muted)', 'font-family': 'var(--mono)' }, svg); t.textContent = v;
+    }
+    data.forEach(([y, v], i) => {
+      const x = L + i * bw;
+      el('rect', { x: x + 1.5, y: yy(v), width: bw - 3, height: Math.max(1, yy(0) - yy(v)), rx: 1.5, fill: v >= 75 ? 'var(--warn)' : 'var(--band)' }, svg).appendChild(Object.assign(document.createElementNS(NS, 'title'), { textContent: `${y}: ${fmt(v)} Mio. m³` }));
+      if (y % 5 === 0) { const t = el('text', { x: x + bw / 2, y: H2 - 8, 'text-anchor': 'middle', 'font-size': 12, fill: 'var(--muted)' }, svg); t.textContent = y; }
+    });
+  })();
+
+  ['v0', 'thr', 'pool', 'reduced'].forEach(id => $(id).addEventListener('input', compute));
+  compute();
+})();
+</script>

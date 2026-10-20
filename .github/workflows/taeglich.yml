@@ -1,0 +1,64 @@
+# Täglicher Rechenlauf der Edersee-Prognose: Messwerte, DWD-Prognose, Pegel und WSA-Plan holen,
+# Ensemble rechnen, App-Datei über GitHub Pages veröffentlichen und die Eingänge im Branch „archiv“ ablegen.
+# Zeiten in UTC: 06:15 und 11:45 (Winter 07:15/12:45, Sommer 08:15/13:45 Uhr), nach dem 07:00-Wert von edersee.me.
+name: Täglicher Rechenlauf
+on:
+  schedule:
+    - cron: '15 6 * * *'
+    - cron: '45 11 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: prognose
+  cancel-in-progress: false
+jobs:
+  rechnen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Rohdaten aus dem Zwischenspeicher
+        uses: actions/cache@v4
+        with:
+          path: daten
+          key: daten-${{ github.run_id }}
+          restore-keys: daten-
+      - name: Rechenlauf
+        run: |
+          python fetch.py
+          python parse.py
+          python climate.py
+          python dwd_forecast.py
+          python live.py
+          python forecast3.py
+          python publish.py
+      - name: Eingänge archivieren
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          d=$(TZ=Europe/Berlin date +%Y-%m-%d_%H%M)
+          mkdir -p /tmp/archiv && cd /tmp/archiv
+          git init -q
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}"
+          if git fetch -q --depth 1 origin archiv; then git checkout -q -b archiv FETCH_HEAD; else git checkout -q --orphan archiv; fi
+          mkdir -p "$d"
+          cp "$GITHUB_WORKSPACE"/ausgabe/live.json "$GITHUB_WORKSPACE"/ausgabe/dwd_eps.json "$GITHUB_WORKSPACE"/ausgabe/app/prognose.json "$d"/
+          git add .
+          git -c user.name="Rechenlauf" -c user.email="actions@github.com" commit -q -m "Archiv $d"
+          git push -q origin archiv
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ausgabe/app
+      - id: deploy
+        uses: actions/deploy-pages@v4

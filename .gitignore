@@ -1,0 +1,8 @@
+# Heruntergeladene Rohdaten und alles, was daraus berechnet wird (edersee.me-Daten nicht veröffentlichen)
+daten/
+ausgabe/
+seite/data.json
+seite/edersee-prognose.html
+__pycache__/
+seite/data3.json
+archiv/

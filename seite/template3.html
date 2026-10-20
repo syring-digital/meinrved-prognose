@@ -1,0 +1,555 @@
+<title>Edersee-Prognosemodell</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+<style>
+/* Layout: ruhige Lesespalte für Erklärungen, dazwischen breite Arbeitsflächen für Kennzahlen, Fächer und Rechner. */
+:root {
+  --bg: #f2f5f8; --surface: #ffffff; --sunken: #e8eef4; --fg: #0f1e2e; --muted: #536476; --line: #d3dde7;
+  --accent: #0b4f8a; --band: #5cabe6; --band-soft: #bcdcf4; --rain: #7a8fd6; --warn: #964600; --good: #1d7448; --bad: #b3261e;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0a131e; --surface: #111c29; --sunken: #0d1824; --fg: #e5ecf4; --muted: #95a6b8; --line: #223247;
+  --accent: #7dbff2; --band: #3a86c4; --band-soft: #1d3d5e; --rain: #8fa2ea; --warn: #ff9e0a; --good: #4cc38a; --bad: #ff6b60; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0a131e; --surface: #111c29; --sunken: #0d1824; --fg: #e5ecf4; --muted: #95a6b8; --line: #223247;
+  --accent: #7dbff2; --band: #3a86c4; --band-soft: #1d3d5e; --rain: #8fa2ea; --warn: #ff9e0a; --good: #4cc38a; --bad: #ff6b60; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--body); margin: 0; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 40px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 64px; }
+.prose { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--display); font-stretch: 82%; line-height: 1.1; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.6rem, 3.2vw, 2.1rem); font-weight: 750; }
+h3 { font-size: 1.15rem; font-weight: 700; font-stretch: 90%; }
+p { margin: 0; }
+.stack { display: grid; gap: 14px; } .stack-lg { display: grid; gap: 24px; }
+.eyebrow { font: 600 0.74rem/1 var(--body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); } .small { font-size: 0.875rem; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+header.top { display: grid; gap: 18px; border-bottom: 1px solid var(--line); padding-bottom: 28px; }
+.status { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; background: var(--sunken); color: var(--muted); border: 1px solid var(--line); }
+.pill.warn { color: var(--warn); } .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.stage-head { display: grid; gap: 8px; } .stage-no { font: 700 0.8rem/1 var(--mono); color: var(--muted); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.kpi { background: var(--surface); padding: 16px 18px; display: grid; gap: 4px; align-content: start; min-width: 0; }
+.kpi .label { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+.kpi .value { font: 600 1.6rem/1.15 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.kpi .value small { font-size: 0.85rem; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.kpi .sub { font-size: 0.82rem; color: var(--muted); }
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--sunken); }
+tr:last-child td { border-bottom: 0; } td.r, th.r { text-align: right; } td.c, th.c { text-align: center; }
+td.txt { white-space: normal; min-width: 220px; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; align-items: start; }
+.two > * { min-width: 0; }
+.note { border-left: 3px solid var(--band); padding: 2px 0 2px 14px; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; }
+.ctl { display: grid; gap: 6px; min-width: 0; align-content: start; }
+.ctl label, .ctl .lab { font-size: 0.82rem; font-weight: 600; }
+.ctl .val { font: 500 0.82rem var(--mono); color: var(--accent); }
+.ctl-row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select { font: inherit; font-size: 0.9rem; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); width: 100%; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 0.88rem; font-weight: 400 !important; }
+.check input { accent-color: var(--accent); width: 18px; height: 18px; flex: none; }
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 10px 8px; position: relative; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 6px 8px 0; font-size: 0.8rem; color: var(--muted); }
+.sw { display: inline-block; width: 14px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+.readout { position: absolute; top: 14px; right: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: 0.78rem/1.45 var(--mono); pointer-events: none; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.card .what { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+.card .big { font: 600 1.4rem/1.15 var(--mono); letter-spacing: -0.02em; }
+.card .range { font-size: 0.82rem; color: var(--muted); }
+.prob { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.bar { height: 6px; border-radius: 3px; background: var(--sunken); overflow: hidden; } .bar > span { display: block; height: 100%; background: var(--accent); }
+.chip { display: inline-block; min-width: 64px; text-align: center; padding: 2px 8px; border-radius: 6px; font: 600 0.82rem var(--mono); }
+.chip.hi { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+.chip.mid { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.chip.lo { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+.lamp { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 6px; }
+.sk0 { color: var(--muted); } .sk1 { color: var(--warn); font-weight: 600; } .sk2 { color: var(--good); font-weight: 700; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 12px; }
+ul.plain, ol.steps { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
+.formula { font: 500 0.95rem/1.5 var(--mono); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 16px; overflow-x: auto; }
+footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 0.82rem; color: var(--muted); display: grid; gap: 6px; }
+@media (max-width: 720px) { .readout { position: static; margin: 6px 8px 0; display: inline-block; } }
+@media (prefers-reduced-motion: no-preference) { .bar > span { transition: width .25s ease; } }
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">Mein RVED · Konzept Stufe 1–4</div>
+  <h1>Edersee-Prognosemodell</h1>
+  <p class="prose">Wie entwickelt sich der Edersee in den nächsten Tagen, Wochen und Monaten, und was heißt das für Regatten? Das Modell verbindet die Seebilanz mit zwei Niederschlag-Abfluss-Modellen. Eines berechnet den Zufluss aus dem Edergebiet, das andere den Abfluss von Fulda und Werra und damit, wie viel Wasser das WSA zur Stützung der Weser abgeben muss. Für die erste Woche nutzt es die DWD-Ensembleprognose, für die Zeit danach das Wetter der Jahre 2000–2025.</p>
+  <div class="status">
+    <span class="pill"><span class="dot"></span><span id="stand"></span></span>
+    <span class="pill warn"><span class="dot"></span>Entwurf, noch nicht in der App</span>
+    <span class="pill"><span class="dot"></span>DWD, WSV, BfG, edersee.me</span>
+  </div>
+</header>
+
+<section class="stack-lg" id="ueberblick">
+  <h2>Auf einen Blick</h2>
+  <div class="cards" id="glance"></div>
+</section>
+
+<!-- STUFE 1 -->
+<section class="stack-lg" id="heute">
+  <div class="stage-head">
+    <div class="stage-no">Stufe 1</div>
+    <h2>Die Bilanz von heute</h2>
+    <p class="prose muted">Messwerte von Pegelonline und edersee.me, der Abgabeplan aus dem WSA-PDF und die DWD-Prognose für die nächsten Tage.</p>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="two">
+    <div class="stack">
+      <h3>Die nächsten Tage</h3>
+      <div class="tbl-wrap"><table><thead><tr><th>Tag</th><th class="r">Regen Eder</th><th class="r">Zufluss</th><th class="r">Abgabe</th><th class="r">Inhalt</th><th class="r">Pegel</th></tr></thead><tbody id="days5"></tbody></table></div>
+      <p class="small muted">Regen: Median der 40 DWD-ICON-EPS-Läufe als Gebietsmittel. Zufluss und Inhalt: Median aller Läufe. Abgabe aus dem WSA-Plan, danach nach den Regeln.</p>
+    </div>
+    <div class="stack">
+      <h3>WSA-Lage</h3>
+      <p class="note small" id="wsa-text"></p>
+      <h3>Wann gleichen sich Zufluss und Abgabe aus?</h3>
+      <p id="wende"></p>
+      <p class="small muted">Der Seepegel schwankt im Tagesverlauf um etwa 5 cm, vermutlich durch den Pumpspeicherbetrieb Waldeck. Trends nur aus Werten zur gleichen Uhrzeit (07:00) oder aus Tagesmitteln. Das Alter jedes Messwerts wird geprüft, weil Pegelonline einzelne Pegel manchmal stundenlang nicht aktualisiert.</p>
+    </div>
+  </div>
+</section>
+
+<!-- WOCHEN -->
+<section class="stack-lg" id="wochen">
+  <div class="stage-head">
+    <div class="stage-no">Stufe 3 · 1–4 Wochen</div>
+    <h2>Die nächsten vier Wochen</h2>
+    <p class="prose muted">Der Gebietszustand (Bodenfeuchte, Grundwasser, Schnee) kommt aus den DWD-Messungen bis gestern. Darauf regnet das DWD-Ensemble der nächsten 7 Tage, danach das Wetter der historischen Jahre.</p>
+  </div>
+  <div class="chart" id="w-box">
+    <svg id="wchart" viewBox="0 0 1000 400" role="img" aria-label="Seeinhalt und Regen in den nächsten vier Wochen"></svg>
+    <div class="readout" id="w-readout" hidden></div>
+    <div class="chart-legend">
+      <span><span class="sw" style="background:var(--band-soft)"></span>Inhalt, 8 von 10 Läufen</span>
+      <span><span class="sw" style="background:var(--band)"></span>mittlere Hälfte</span>
+      <span><span class="sw" style="background:var(--accent);height:3px"></span>Median</span>
+      <span><span class="sw" style="background:var(--rain)"></span>Regen Edergebiet (DWD, Median, Linie 10–90 %)</span>
+    </div>
+  </div>
+  <div class="two">
+    <div class="stack">
+      <h3>Zufluss je Woche</h3>
+      <div class="tbl-wrap"><table><thead><tr><th>Woche</th><th class="r">10 %</th><th class="r">Median</th><th class="r">90 %</th><th class="r">Inhalt am Ende</th></tr></thead><tbody id="weeks"></tbody></table></div>
+      <p class="small muted">Zufluss in m³/s, Inhalt in Mio. m³ (Median). Zum Vergleich: Abgabe derzeit 3 m³/s.</p>
+    </div>
+    <div class="stack">
+      <h3>Was bringt das im Rückblick?</h3>
+      <div class="tbl-wrap"><table><thead><tr><th>Fehler des Medians (Mio. m³)</th><th class="r">7 T</th><th class="r">14 T</th><th class="r">28 T</th><th class="r">60 T</th></tr></thead><tbody id="hc"></tbody></table></div>
+      <p class="small muted" id="hc-note"></p>
+    </div>
+  </div>
+</section>
+
+<!-- SAISON -->
+<section class="stack-lg" id="saison">
+  <div class="stage-head">
+    <div class="stage-no">Stufe 2 + 3 · Saison</div>
+    <h2>Bis Oktober 2027</h2>
+    <p class="prose muted">Jeder der 52 Läufe ist ein vollständiges Jahr: DWD-Prognose, dann ein Wetterjahr, angewendet auf den heutigen See und den heutigen Gebietszustand. Die Schalter verändern die Regeln, nicht das Wetter.</p>
+  </div>
+  <div class="controls">
+    <div class="ctl"><div class="ctl-row"><label for="v0">Startinhalt</label><span class="val" id="v0-val"></span></div><input type="range" id="v0" min="15" max="199" step="0.5"><span class="small muted">Was wäre, wenn der See heute anders stünde?</span></div>
+    <div class="ctl"><div class="ctl-row"><label for="thr">Regattagrenze</label><span class="val" id="thr-val"></span></div><input type="range" id="thr" min="222" max="240" step="0.25" value="228"><span class="small muted">2026: bei 229,9 m gesegelt, bei 225,9 m abgesagt</span></div>
+    <div class="ctl"><label for="tg">Stützungsziel Hann. Münden</label><select id="tg"><option value="55">55 m³/s (heute)</option><option value="50">50 m³/s</option><option value="45">45 m³/s</option><option value="40">40 m³/s</option></select><span class="small muted">Niedrigeres Ziel = weniger Abgabe im Sommer.</span></div>
+    <div class="ctl"><span class="lab">Regeln</span>
+      <label class="check"><input type="checkbox" id="reduced" checked> Unter 29 Mio. m³ nur 3 m³/s</label>
+      <label class="check"><input type="checkbox" id="h125"> Haltelinie 125 (RVED)</label>
+      <span class="small muted">Haltelinie: unter 125 Mio. m³ von Mai bis August höchstens 6 m³/s.</span></div>
+  </div>
+  <div class="chart" id="fan-box">
+    <svg id="fan" viewBox="0 0 1000 420" role="img" aria-label="Fächer der möglichen Verläufe bis Oktober 2027"></svg>
+    <div class="readout" id="readout" hidden></div>
+    <div class="chart-legend">
+      <span><span class="sw" style="background:var(--band-soft)"></span>8 von 10 Läufen</span>
+      <span><span class="sw" style="background:var(--band)"></span>mittlere Hälfte</span>
+      <span><span class="sw" style="background:var(--accent);height:3px"></span>Median</span>
+      <span><span class="sw" style="background:var(--fg);height:2px"></span>gemessen</span>
+    </div>
+  </div>
+  <div class="cards" id="dates"></div>
+  <div class="stack">
+    <h3>Weser-Stützung 2027 (Median aller Läufe)</h3>
+    <div class="chart"><svg id="weser" viewBox="0 0 1000 300" role="img" aria-label="Edersee-Abgabe und Abfluss Hann. Münden je Monat"></svg>
+      <div class="chart-legend">
+        <span><span class="sw" style="background:var(--band)"></span>Restgebiet (Fulda, Werra ohne Edersee)</span>
+        <span><span class="sw" style="background:var(--warn)"></span>Abgabe Edersee</span>
+        <span><span class="sw" style="background:var(--fg);height:2px"></span>Stützungsziel</span>
+      </div></div>
+  </div>
+</section>
+
+<!-- REGATTA -->
+<section class="stack-lg" id="regatta">
+  <div class="stage-head">
+    <div class="stage-no">Stufe 4 · Regatta-Ampel</div>
+    <h2>Regatten 2027</h2>
+    <p class="prose muted">Wahrscheinlichkeit, dass der Pegel am Termin über der Regattagrenze liegt. Ab wann die Zahl belastbar ist, zeigt der Rückblick-Test: Für Juli und August wird die Prognose ab Februar deutlich besser als die reine Statistik, für April und Mai erst ab April.</p>
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Termin</th><th>Regatta</th><th class="r">segelbar</th><th class="r">mit Haltelinie</th><th>belastbar ab</th><th>Empfehlung</th></tr></thead>
+    <tbody id="reg"></tbody></table></div>
+  <p class="small muted">Beispieltermine: Kalender 2026 auf denselben Wochentag 2027, Feiertagsregatten auf den Feiertag 2027. Grün ab 85 %, gelb ab 60 %, sonst rot. Im Rückblick waren die Regatta-Wahrscheinlichkeiten auch in Stufe 3 im Mittel etwas zu hoch, siehe Rückblick-Test.</p>
+</section>
+
+<!-- WAS-WÄRE-WENN -->
+<section class="stack-lg" id="wasware">
+  <div class="stage-head">
+    <div class="stage-no">Stufe 4 · Was-wäre-wenn</div>
+    <h2>Die Haltelinie in echten Jahren</h2>
+    <p class="prose muted">Die Jahre 2003–2026 mit echtem Zufluss und echten Abgaben nachgespielt. Fällt der See im gewählten Zeitraum unter die Grenze, gibt das Modell nur noch die Sparabgabe ab. Ab September gilt wieder die echte Abgabe, das gesparte Wasser bleibt im See.</p>
+  </div>
+  <div class="controls">
+    <div class="ctl"><div class="ctl-row"><label for="wl">Grenze</label><span class="val" id="wl-val"></span></div><input type="range" id="wl" min="80" max="160" step="5" value="125"></div>
+    <div class="ctl"><div class="ctl-row"><label for="ws">Sparabgabe</label><span class="val" id="ws-val"></span></div><input type="range" id="ws" min="3" max="15" step="1" value="6"></div>
+    <div class="ctl"><label for="wp">Zeitraum</label><select id="wp"><option value="5-8">Mai bis August (RVED-Konzept)</option><option value="6-8">Juni bis August</option><option value="5-9">Mai bis September</option></select></div>
+  </div>
+  <p id="wi-sum" class="prose"></p>
+  <div class="chart"><svg id="wichart" viewBox="0 0 1000 280" role="img" aria-label="Inhalt am 1. September mit und ohne Regel"></svg>
+    <div class="chart-legend"><span><span class="sw" style="background:var(--muted)"></span>echt am 1. September</span><span><span class="sw" style="background:var(--accent)"></span>mit Regel</span></div></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Jahr</th><th class="r">15.07. echt</th><th class="r">mit Regel</th><th class="r">01.09. echt</th><th class="r">mit Regel</th><th class="r">gespart</th><th class="r">Tage</th><th class="r">Weser bis zu</th></tr></thead><tbody id="wi"></tbody></table></div>
+  <p class="small muted">„Weser bis zu“: größte Kürzung der Edersee-Abgabe an einem Tag. Hann. Münden wäre an diesen Tagen entsprechend unter das Stützungsziel von 55 m³/s gefallen.</p>
+</section>
+
+<!-- WESER -->
+<section class="stack-lg" id="weser-erkl">
+  <div class="stage-head">
+    <div class="stage-no">Stützbedarf</div>
+    <h2>Warum der Sommer an der Weser hängt</h2>
+  </div>
+  <div class="two">
+    <div class="stack">
+      <p>Das WSA hält Hann. Münden im Sommer bei etwa 55 m³/s, solange der Edersee über 40 Mio. m³ liegt. Was Fulda und Werra nicht liefern, kommt aus dem See:</p>
+      <div class="formula">Abgabe = 55 m³/s − Abfluss Fulda/Werra (ohne Edersee)</div>
+      <p>Die BfG-Tageswerte 2015 zeigen das genau. Von Juni bis August lag Hann. Münden wochenlang bei 53–57 m³/s, obwohl Fulda und Werra nur noch gut 30 lieferten. Im September fiel der See unter 40 Mio. m³, die Stützung endete und die Weser sank auf 34 m³/s.</p>
+      <p class="small muted" id="rr-quality"></p>
+    </div>
+    <div class="chart"><svg id="bfg" viewBox="0 0 600 320" role="img" aria-label="Abfluss Hann. Münden 2015 aufgeteilt in Restgebiet und Edersee-Abgabe"></svg>
+      <div class="chart-legend"><span><span class="sw" style="background:var(--band)"></span>Restgebiet</span><span><span class="sw" style="background:var(--warn)"></span>Edersee-Abgabe</span><span><span class="sw" style="background:var(--fg);height:2px"></span>55 m³/s</span></div></div>
+  </div>
+</section>
+
+<!-- BEWERTUNG -->
+<section class="stack-lg" id="test">
+  <div class="stage-head">
+    <div class="stage-no">Rückblick-Test</div>
+    <h2>Wie gut ist das Modell?</h2>
+    <p class="prose muted">Für jede Saison 2006–2026 von sechs Startterminen aus gerechnet, ohne das Testjahr im Wetterpool, und mit dem Eingetretenen verglichen. Für die Vergangenheit gibt es keine archivierten DWD-Ensembleprognosen; die Wahrscheinlichkeiten sind deshalb ohne Wetterprognose bewertet.</p>
+  </div>
+  <div class="stack">
+    <h3>Wahrscheinlichkeiten gegen reine Statistik (Brier-Skill)</h3>
+    <div class="tbl-wrap"><table><thead id="sk-h"></thead><tbody id="sk"></tbody></table></div>
+    <p class="small muted">0 = kein Vorteil gegenüber der Häufigkeit in den anderen Jahren, 1 = perfekt. Grün/orange nur, wenn der Wert mit 80 % Sicherheit über 0 liegt. Stufe 3 ist für Regatten im Juli ab Oktober leicht und ab Februar deutlich besser, für den Vollstau ab April.</p>
+    <p class="small" id="calib"></p>
+  </div>
+  <div class="box">
+    <div class="eyebrow">Fallbeispiel 2026</div>
+    <h3>Die abgesagten Regatten im Juli</h3>
+    <p>Am 18. Juli 2026 lag der See bei 52,2 Mio. m³, das SCE-Race fiel aus. Was hätten die Modelle vorher gesagt?</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Prognose vom</th><th class="r">Inhalt</th><th class="r">Stufe 2: Median</th><th class="r">segelbar</th><th class="r">Stufe 3: Median</th><th class="r">segelbar</th></tr></thead><tbody id="case"></tbody></table></div>
+    <p class="small">Stufe 3 hätte ab Mai gewarnt. Den Extremsommer mit 30–39 m³/s Abgabe im Juli unterschätzt aber auch sie, weil das Weser-Modell Niedrigwasser bei extremer Trockenheit noch etwas zu hoch einschätzt.</p>
+  </div>
+  <div class="stack">
+    <h3>Der See verliert im Sommer mehr als früher</h3>
+    <p class="prose small">Abnahme vom 1. Juni bis 1. August je Jahr. Mittlerer Zufluss: <span id="decades"></span>.</p>
+    <div class="chart"><svg id="dd" viewBox="0 0 1000 240" role="img" aria-label="Sommerabstau je Jahr 1980 bis 2026"></svg></div>
+  </div>
+  <div class="stack">
+    <h3>Prüfprotokoll</h3>
+    <ul class="plain small">
+      <li>Eder-Modell (GR4J mit Schnee, 12 DWD-Niederschlags- und 3 Klimastationen): Tages-NSE 0,85 im Kalibrierzeitraum 1991–2010 und 0,85 im unabhängigen Prüfzeitraum 2011–2026, Monats-NSE 0,94. Systematik im Sommer (+30–50 %) wird durch das Verhältnisverfahren herausgerechnet.</li>
+      <li>Weser-Restgebiet (18 + 4 Stationen): NSE 0,81 gegen die BfG-Tageswerte Hann. Münden 2013–2015 (per Texterkennung aus den Jahrbuch-PDFs gelesen; alle 28 Monatsmittel stimmen mit den gedruckten Werten überein). Monatsfaktoren 0,68–1,0 aus den Stütztagen.</li>
+      <li>Mit bekanntem Wetter trifft das Modell die mittlere Sommerabgabe je Jahr auf 2,0 m³/s, ohne die echten Abgaben zu kennen.</li>
+      <li>Copernicus-Abflussdaten (GloFAS) verworfen: für Bonaforth 0 statt gemessener 19 m³/s.</li>
+      <li>Frühere Korrekturen: Winter-Mindestabgabe 4 m³/s seit 2018, Hochwasserabgabe bis 120 m³/s, Regattatermine an Feiertagen.</li>
+      <li>Bekannte Vorteile im Test: Das Eder-Modell ist an 1991–2010 kalibriert, das Weser-Modell an Stütztagen 2003–2026. Die Bewertung ist dadurch etwas zu günstig.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="stack prose" id="methode">
+  <h2>Methode, Grenzen, nächste Schritte</h2>
+  <ul class="plain">
+    <li><strong>Zufluss:</strong> gemessener Zufluss im Wetterjahr × (Modell mit heutigem Gebietszustand ÷ Modell mit damaligem Zustand), am Start an den gemessenen Zufluss angeglichen. So bleibt die echte Schwankung erhalten, das Modell liefert nur den Unterschied durch Trockenheit oder Nässe.</li>
+    <li><strong>Weser:</strong> Restabfluss aus dem Modell, mit Monatsfaktoren und am Start an Bonaforth + Letzter Heller angeglichen. Stützbedarf = Ziel − Restabfluss, Mai bis Oktober, höchstens 40 m³/s.</li>
+    <li><strong>Regeln:</strong> unter 29 Mio. 3 m³/s, unter 40 Mio. 6 (Winter 4), Winter-Leitlinie mit Abgabe bis 120 m³/s, Hochwasserentlastung bei Vollstau, WSA-Plan für die ersten Tage.</li>
+    <li><strong>Grenzen:</strong> Extremsommer wie 2026 werden unterschätzt. Entscheidungen des WSA außerhalb der Regeln (Absprachen, Bauarbeiten) kennt das Modell nicht. Die DWD-Prognose reicht 7 Tage, danach zählt das Klima der letzten 26 Jahre.</li>
+    <li><strong>Daten:</strong> DWD Open Data (CC BY 4.0), WSV Pegelonline, BfG Gewässerkundliches Jahrbuch, WSA Weser; Seedaten von wasserstand.edersee.me (private Seite, Erlaubnis vor Veröffentlichung nötig). DWD-ICON-EPS über die Schnittstelle von Open-Meteo.</li>
+  </ul>
+  <ol class="steps">
+    <li>Tägliche Berechnung auf einem kleinen Server (DWD-Daten bis gestern, ICON-EPS, Pegel, WSA-PDF), die App lädt nur das Ergebnis</li>
+    <li>Prognose-Tab in der App mit Stufe 1, 4-Wochen-Fächer, Saisonfächer und Regatta-Ampel</li>
+    <li>Echte Regattagrenzen je Club und Revier abfragen, Push-Hinweise bei Ampelwechsel</li>
+    <li>Weser-Modell für Extremsommer verbessern, sobald längere Abflussreihen vorliegen (z. B. über das Global Runoff Data Centre, kostenlose Registrierung)</li>
+  </ol>
+</section>
+
+<footer>
+  <span>Quellen: Deutscher Wetterdienst (Open Data, ICON-EPS), WSV Pegelonline, WSA Weser (Wasserstandsvorhersage Oberweser), BfG Gewässerkundliches Jahrbuch (Hann. Münden 2014/2015), wasserstand.edersee.me, WSGE-Regattakalender 2026.</span>
+  <span>Alle Angaben ohne Gewähr. Konzeptentwurf für Mein RVED, nicht vom RVED oder WSA geprüft.</span>
+</footer>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+__MODEL__
+</script>
+<script>
+(() => {
+  const DATA = JSON.parse(document.getElementById('data').textContent);
+  Model3.init(DATA);
+  const $ = id => document.getElementById(id), NS = 'http://www.w3.org/2000/svg', DAY = Model3.DAY;
+  const fmt = (v, d = 1) => v.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const MON = ['Jan.', 'Feb.', 'März', 'Apr.', 'Mai', 'Juni', 'Juli', 'Aug.', 'Sep.', 'Okt.', 'Nov.', 'Dez.'];
+  const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+  const dstr = (t, year) => { const [y, m, d] = Model3.ymd(t); return `${d}. ${MON[m - 1]}${year ? ' ' + y : ''}`; };
+  const pctStr = p => p > 0.95 ? 'über 95 %' : p < 0.05 ? 'unter 5 %' : `${Math.round(p * 100)} %`;
+  const isoT = iso => Model3.utc(...iso.split('-').map(Number));
+  const T0 = isoT(DATA.start), H = DATA.runs[0].q.length;
+  const kOf = iso => Math.round((isoT(iso) - T0) / DAY);
+  const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+  const txt = (parent, x, y, s, a = {}) => { const t = el('text', Object.assign({ x, y, 'font-size': 12, fill: 'var(--muted)' }, a), parent); t.textContent = s; return t; };
+  const plan = {}; (DATA.plan.plan || []).forEach(([iso, v]) => { const k = kOf(iso); if (k >= 0) plan[k] = v; });
+  const H125 = { limit: 125, spar: 6, from: 5, to: 8 };
+
+  function run(opt) {
+    const V0 = opt.V0 ?? DATA.V0;
+    return DATA.runs.map(r => Model3.simulate(V0, T0, r.q, r.r, Object.assign({ plan }, opt)));
+  }
+  const fanOf = sims => { const f = []; for (let k = 0; k < H; k++) { const xs = sims.map(s => s.vol[k]); f.push([0.1, 0.25, 0.5, 0.75, 0.9].map(p => Model3.pct(xs, p))); } return f; };
+  const firstK = (s, f, a = 0, b = H - 1) => { for (let k = a; k <= Math.min(b, H - 1); k++) if (f(s, k)) return k; return null; };
+  const qStats = ks => { const g = ks.filter(k => k != null).sort((a, b) => a - b); if (!g.length) return null; const q = p => g[Math.round((g.length - 1) * p)]; return { p: g.length, med: T0 + q(.5) * DAY, lo: T0 + q(.1) * DAY, hi: T0 + q(.9) * DAY }; };
+  const card = (what, big, range, p) => `<div class="card"><span class="what">${what}</span><span class="big">${big}</span><span class="range">${range}</span>${p == null ? '' : `<div class="prob"><div class="bar"><span style="width:${Math.round(p * 100)}%"></span></div><span class="num small">${pctStr(p)}</span></div>`}</div>`;
+  const season = DATA.start >= `${Model3.ymd(T0)[0]}-08-01` ? Model3.ymd(T0)[0] + 1 : Model3.ymd(T0)[0];
+  const S = y => `${season}-${y}`;
+
+  // ---------- Stand und Stufe 1 ----------
+  const L = DATA.live;
+  $('stand').textContent = `Tageswerte ${dstr(T0, true)}, DWD-Prognose vom ${DATA.eps.abgerufen.replace('T', ', ')} Uhr`;
+  const base = run({});
+  const fan0 = fanOf(base);
+  const schAge = L.schmitt_alter;
+  $('kpis').innerHTML = [
+    ['Inhalt', `${fmt(DATA.V0, 2)} <small>Mio. m³</small>`, `${fmt(DATA.V0 / 199.55 * 100)} % · ${fmt(DATA.level0, 2)} m ü. NN (${dstr(T0)}, 07:00)`],
+    ['Zufluss Schmittlotheim', `${fmt(L.schmitt[1], 2)} <small>m³/s</small>`, `Pegelonline ${L.schmitt[0].slice(8, 10)}.${L.schmitt[0].slice(5, 7)}. ${L.schmitt[0].slice(11, 16)} · ${schAge > 3 ? 'veraltet' : 'aktuell'}`],
+    ['Abgabe', `${fmt(DATA.plan.plan?.[0]?.[1] ?? 3, 1)} <small>m³/s</small>`, `WSA-Plan bis ${(DATA.plan.plan || []).slice(-1)[0]?.[0].slice(8, 10)}.${(DATA.plan.plan || []).slice(-1)[0]?.[0].slice(5, 7)}. (Stand ${DATA.plan.stand})`],
+    ['Weser Hann. Münden', `${fmt(L.hmue[1], 1)} <small>m³/s</small>`, `Bonaforth + Letzter Heller, ${L.hmue[0].slice(8, 10)}.${L.hmue[0].slice(5, 7)}. · Ziel 55 nur bei über 40 Mio. m³`]
+  ].map(([l, v, s]) => `<div class="kpi"><span class="label">${l}</span><span class="value">${v}</span><span class="sub">${s}</span></div>`).join('');
+  $('wsa-text').textContent = (DATA.plan.text || '').replace(/\n/g, ' ') + (DATA.plan.mittel ? ` Langjähriges Mittel heute: ${fmt(DATA.plan.mittel)} Mio. m³.` : '');
+  const rainE = DATA.eps.rain.eder;
+  $('days5').innerHTML = Array.from({ length: 7 }, (_, k) => {
+    const t = T0 + k * DAY, w = WD[new Date(t).getUTCDay()], [, m, d] = Model3.ymd(t);
+    const qin = Model3.pct(DATA.runs.map(r => r.q[k]), .5), out = Model3.pct(base.map(s => s.out[k]), .5), v = fan0[k][2];
+    const rn = rainE[k] ? fmt(rainE[k][1], 1) + ' mm' : '–';
+    return `<tr><td>${w} ${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}.</td><td class="r num">${rn}</td><td class="r num">${fmt(qin, 2)}</td><td class="r num">${fmt(out, 1)}${plan[k] != null ? '' : '*'}</td><td class="r num">${fmt(v, 2)}</td><td class="r num">${fmt(Model3.level(v), 2)}</td></tr>`;
+  }).join('') + '<tr><td colspan="6" class="small muted">* nach den Regeln, nicht aus dem WSA-Plan</td></tr>';
+  const wk = DATA.runs.map((r, i) => { for (let k = 0; k + 7 <= H; k++) { let s = 0; for (let j = k; j < k + 7; j++) s += r.q[j] - base[i].out[j]; if (s > 0) return k; } return null; });
+  const w7 = wk.filter(k => k != null && k <= 7).length / wk.length, w28 = wk.filter(k => k != null && k <= 28).length / wk.length;
+  $('wende').innerHTML = `Bei 3 m³/s Abgabe reicht schon ein kleiner Anstieg des Zuflusses. Nach der DWD-Prognose übersteigt der Zufluss die Abgabe im Wochenmittel in <strong>${pctStr(w7)}</strong> der Läufe innerhalb einer Woche und in <strong>${pctStr(w28)}</strong> innerhalb von vier Wochen. Der Tiefpunkt ist damit sehr wahrscheinlich erreicht.`;
+
+  // ---------- Auf einen Blick ----------
+  function glance() {
+    const s40 = qStats(base.map(s => DATA.V0 >= 40 ? 0 : firstK(s, (s, k) => s.vol[k] >= 40)));
+    const kv1 = kOf(S('03-01')), kv2 = kOf(S('09-30'));
+    const sv = qStats(base.map(s => firstK(s, (s, k) => s.vol[k] >= 197, kv1, kv2)));
+    const kj = kOf(S('07-15')), thrV = Model3.volume(+$('thr').value);
+    const pj = base.filter(s => s.vol[kj] >= thrV).length / base.length;
+    const q7 = DATA.runs.map(r => r.q.slice(0, 7).reduce((a, b) => a + b, 0) / 7);
+    $('glance').innerHTML = card('Zufluss nächste Woche', `${fmt(Model3.pct(q7, .5), 1)} m³/s`, `8 von 10 Läufen: ${fmt(Model3.pct(q7, .1), 1)} bis ${fmt(Model3.pct(q7, .9), 1)} · Abgabe 3`, null)
+      + (s40 ? card('Wieder über 40 Mio. m³', dstr(s40.med, true), `10–90 %: ${dstr(s40.lo)} bis ${dstr(s40.hi, true)}`, s40.p / base.length) : '')
+      + card(`Vollstau ${season}`, sv ? pctStr(sv.p / base.length) : 'unter 5 %', sv ? `wenn ja, im Median am ${dstr(sv.med)}` : 'in keinem Lauf', sv ? sv.p / base.length : 0)
+      + card('Regatta am 15. Juli', pctStr(pj), `über ${fmt(+$('thr').value, 2)} m · siehe Regatta-Ampel`, pj);
+  }
+
+  // ---------- 4 Wochen ----------
+  (function weeks() {
+    const svg = $('wchart'), W = 1000, HH = 400, PL = 52, PR = 52, PT = 14, PB = 34, N = 29;
+    const fan = fan0.slice(0, N), vmax = Math.max(40, Math.ceil(Math.max(...fan.map(f => f[4])) / 10) * 10);
+    const sx = k => PL + k / (N - 1) * (W - PL - PR), sy = v => PT + (1 - v / vmax) * (HH - PT - PB);
+    const rmax = Math.max(10, Math.ceil(Math.max(...rainE.map(r => r[2])) / 5) * 5), ry = r => HH - PB - r / rmax * (HH - PT - PB) * 0.45;
+    for (let v = 0; v <= vmax; v += vmax > 60 ? 20 : 10) { el('line', { x1: PL, x2: W - PR, y1: sy(v), y2: sy(v), stroke: 'var(--line)' }, svg); txt(svg, PL - 8, sy(v) + 4, v, { 'text-anchor': 'end', 'font-family': 'var(--mono)' }); }
+    txt(svg, 8, PT + 10, 'Mio. m³', { 'font-size': 11 });
+    for (let r = 0; r <= rmax; r += rmax > 20 ? 10 : 5) txt(svg, W - PR + 8, ry(r) + 4, r, { 'font-family': 'var(--mono)', fill: 'var(--rain)' });
+    txt(svg, W - 8, HH - PB - (HH - PT - PB) * 0.45 - 6, 'mm', { 'text-anchor': 'end', fill: 'var(--rain)', 'font-size': 11 });
+    rainE.slice(0, N).forEach((r, k) => {
+      const x = sx(k), bw = (W - PL - PR) / (N - 1) * 0.6;
+      el('rect', { x: x - bw / 2, y: ry(r[1]), width: bw, height: Math.max(0, HH - PB - ry(r[1])), fill: 'var(--rain)', opacity: 0.55, rx: 2 }, svg);
+      el('line', { x1: x, x2: x, y1: ry(r[2]), y2: ry(r[0]), stroke: 'var(--rain)', 'stroke-width': 1.5 }, svg);
+    });
+    for (let k = 0; k < N; k += 7) { el('line', { x1: sx(k), x2: sx(k), y1: PT, y2: HH - PB, stroke: 'var(--line)', 'stroke-dasharray': '2 4' }, svg); txt(svg, sx(k), HH - PB + 18, dstr(T0 + k * DAY), { 'text-anchor': 'middle' }); }
+    const band = (i, j, fill) => { let d = ''; fan.forEach((f, k) => d += (k ? 'L' : 'M') + sx(k).toFixed(1) + ',' + sy(f[i]).toFixed(1)); for (let k = N - 1; k >= 0; k--) d += 'L' + sx(k).toFixed(1) + ',' + sy(fan[k][j]).toFixed(1); el('path', { d: d + 'Z', fill }, svg); };
+    band(0, 4, 'var(--band-soft)'); band(1, 3, 'var(--band)');
+    let d = ''; fan.forEach((f, k) => d += (k ? 'L' : 'M') + sx(k).toFixed(1) + ',' + sy(f[2]).toFixed(1)); el('path', { d, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2.5 }, svg);
+    [[40, 'Normalabgabe 40'], [29, '29']].forEach(([v, l]) => { if (v < vmax) { el('line', { x1: PL, x2: W - PR, y1: sy(v), y2: sy(v), stroke: 'var(--muted)', 'stroke-dasharray': '6 4' }, svg); txt(svg, PL + 6, sy(v) - 5, l, { 'font-size': 11 }); } });
+    const hit = el('rect', { x: PL, y: PT, width: W - PL - PR, height: HH - PT - PB, fill: 'transparent' }, svg), ro = $('w-readout');
+    const mv = ev => { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse()); const k = Math.max(0, Math.min(N - 1, Math.round((p.x - PL) / (W - PL - PR) * (N - 1)))); ro.hidden = false; ro.innerHTML = `<strong>${dstr(T0 + k * DAY, true)}</strong><br>Inhalt ${fmt(fan[k][2])} (${fmt(fan[k][0])}–${fmt(fan[k][4])})${rainE[k] ? `<br>Regen ${fmt(rainE[k][1])} mm (${fmt(rainE[k][0])}–${fmt(rainE[k][2])})` : ''}`; };
+    hit.addEventListener('pointermove', mv); hit.addEventListener('pointerdown', mv); hit.addEventListener('pointerleave', () => ro.hidden = true);
+    $('weeks').innerHTML = [0, 1, 2, 3].map(w => { const qs = DATA.runs.map(r => r.q.slice(w * 7, w * 7 + 7).reduce((a, b) => a + b, 0) / 7); return `<tr><td>${w + 1}. Woche (ab ${dstr(T0 + w * 7 * DAY)})</td><td class="r num">${fmt(Model3.pct(qs, .1), 2)}</td><td class="r num">${fmt(Model3.pct(qs, .5), 2)}</td><td class="r num">${fmt(Model3.pct(qs, .9), 2)}</td><td class="r num">${fmt(fan0[w * 7 + 7][2])}</td></tr>`; }).join('');
+    const hc = DATA.hindcast.V;
+    $('hc').innerHTML = [['A', 'Stufe 2 (nur Wetterjahre)'], ['B', 'Stufe 3 (mit Gebietszustand)'], ['C', 'Stufe 3 + perfekte Woche 1']].map(([v, l]) => `<tr><td>${l}</td>${[7, 14, 28, 60].map(L => `<td class="r num">${fmt(hc[v][L], 1)}</td>`).join('')}</tr>`).join('');
+    $('hc-note').textContent = `${DATA.hindcast.n} Starttermine (jeder Monatserste 2006–2025). „Perfekte Woche 1“ nutzt das tatsächlich gefallene Wetter und zeigt, was eine sehr gute DWD-Prognose höchstens bringt. Mit dem WSA-Abgabeplan der ersten 5 Tage sinkt der Fehler nach 7 Tagen zusätzlich auf rund 3 Mio. m³. Beim Zufluss der ersten Woche halbiert eine gute Prognose den Fehler (${fmt(DATA.hindcast.Q.A[7], 1)} → ${fmt(DATA.hindcast.Q.C[7], 1)} Mio. m³).`;
+  })();
+
+  // ---------- Saison ----------
+  const REG = [['04-24', 'Nationalparkregatta'], ['05-06', 'Bringhausen-Cup (Himmelfahrt)'], ['05-16', 'Blaues Band des SCE (Pfingsten)'], ['05-27', 'German Open Soling (Fronleichnam)'], ['05-29', '4. Lauf Ederseemeisterschaft'], ['06-12', 'Edersee-Cup Fighter'], ['06-19', 'WSVR-Cup'], ['06-26', 'Edersee-Cup J22'], ['07-03', 'Freundschaftsregatta'], ['07-10', 'Edertal-Cup'], ['07-17', 'SCE-Race'], ['07-24', 'Blaues Band der SSGE'], ['08-14', 'Jugendabschlussregatta'], ['08-21', 'Spaßregatta ESV ’86']];
+  $('v0').value = DATA.V0;
+  function compute() {
+    const V0 = +$('v0').value, thrL = +$('thr').value, thrV = Model3.volume(thrL);
+    const opt = { V0, reduced: $('reduced').checked, target: +$('tg').value, h125: $('h125').checked ? H125 : null };
+    $('v0-val').textContent = `${fmt(V0)} Mio. m³ · ${fmt(Model3.level(V0), 2)} m`;
+    $('thr-val').textContent = `${fmt(thrL, 2)} m · ${fmt(thrV)} Mio. m³`;
+    const sims = run(opt), n = sims.length, fan = fanOf(sims);
+    const kv1 = kOf(S('03-01')), kv2 = kOf(S('09-30')), km = kOf(S('05-01')), ka = kOf(S('08-01')), kj = kOf(S('07-15'));
+    const s40 = qStats(sims.map(s => V0 >= 40 ? null : firstK(s, (s, k) => s.vol[k] >= 40)));
+    const s125 = qStats(sims.map(s => V0 >= 125 ? null : firstK(s, (s, k) => s.vol[k] >= 125)));
+    const sv = qStats(sims.map(s => firstK(s, (s, k) => s.vol[k] >= 197, kv1, kv2)));
+    const su = sims.filter(s => firstK(s, (s, k) => s.vol[k] < 125, km, ka - 1) != null).length / n;
+    const pj = sims.filter(s => s.vol[kj] >= thrV).length / n;
+    const minV = Math.min(...sims.map(s => Math.min(...s.vol.slice(0, 120))));
+    const span = s => `10–90 %: ${dstr(s.lo)} bis ${dstr(s.hi, true)}`;
+    $('dates').innerHTML = card('Tiefster Stand bis Februar', `${fmt(minV)} Mio. m³`, `niedrigster Wert aller ${n} Läufe · ${fmt(Model3.level(minV), 2)} m`, null)
+      + (s40 ? card('Wieder über 40 Mio. m³', dstr(s40.med, true), span(s40), s40.p / n) : '')
+      + (s125 ? card('Über die Haltelinie 125', dstr(s125.med, true), span(s125), s125.p / n) : '')
+      + card(`Vollstau ${season}`, sv ? pctStr(sv.p / n) : 'unter 5 %', sv ? `wenn ja, im Median am ${dstr(sv.med)}` : 'in keinem Lauf', sv ? sv.p / n : 0)
+      + card('Unter 125 vor dem 1. August', pctStr(su), 'Sommer-Absenkung durch Weser-Stützung', su)
+      + card(`Am 15. Juli über ${fmt(thrL, 2)} m`, pctStr(pj), `Median am 15.07.: ${fmt(fan[kj][2])} Mio. m³`, pj);
+    drawFan(fan, thrV, V0);
+    drawWeser(sims, opt.target);
+    // Regatta-Ampel (mit Haltelinie immer zusätzlich gerechnet)
+    const simsH = opt.h125 ? sims : run(Object.assign({}, opt, { h125: H125 }));
+    $('reg').innerHTML = REG.map(([md, name]) => {
+      const k = kOf(S(md)), p = sims.filter(s => s.vol[k] >= thrV).length / n, ph = simsH.filter(s => s.vol[k] >= thrV).length / n;
+      const c = p >= 0.85 ? 'hi' : p >= 0.6 ? 'mid' : 'lo', mo = +md.slice(0, 2);
+      const from = mo <= 5 ? `1. Apr. ${season}` : mo === 6 ? `1. März ${season}` : `1. Feb. ${season}`;
+      const rec = c === 'hi' ? 'wie geplant vorbereiten' : c === 'mid' ? `Ausweichtermin vormerken, am ${from.replace(' ' + season, '')} neu prüfen` : `Ausweichtermin oder -revier vorbereiten, am ${from.replace(' ' + season, '')} entscheiden`;
+      const lamp = { hi: 'var(--good)', mid: 'var(--warn)', lo: 'var(--bad)' }[c];
+      return `<tr><td class="num">${md.slice(3)}.${md.slice(0, 2)}.</td><td>${name}</td><td class="r"><span class="lamp" style="background:${lamp}"></span><span class="chip ${c}">${pctStr(p)}</span></td><td class="r num">${pctStr(ph)}</td><td>${from}</td><td class="txt small">${rec}</td></tr>`;
+    }).join('');
+    glance();
+  }
+
+  const X0 = T0 - 365 * DAY, X1 = T0 + (H - 1) * DAY;
+  let FAN = null;
+  function drawFan(fan, thrV, V0) {
+    FAN = fan;
+    const svg = $('fan'); svg.innerHTML = '';
+    const PL = 52, PR = 16, PT = 14, PB = 34, W = 1000, HH = 420;
+    const sx = t => PL + (t - X0) / (X1 - X0) * (W - PL - PR), sy = v => PT + (1 - v / 200) * (HH - PT - PB);
+    for (let v = 0; v <= 200; v += 50) { el('line', { x1: PL, x2: W - PR, y1: sy(v), y2: sy(v), stroke: 'var(--line)' }, svg); txt(svg, PL - 8, sy(v) + 4, v, { 'text-anchor': 'end', 'font-family': 'var(--mono)' }); }
+    txt(svg, 8, PT + 10, 'Mio. m³', { 'font-size': 11 });
+    const [y0] = Model3.ymd(X0);
+    for (let y = y0; y <= y0 + 2; y++) for (const m of [1, 4, 7, 10]) { const t = Model3.utc(y, m, 1); if (t < X0 || t > X1) continue; el('line', { x1: sx(t), x2: sx(t), y1: PT, y2: HH - PB, stroke: 'var(--line)', 'stroke-dasharray': m === 1 ? '' : '2 4' }, svg); txt(svg, sx(t), HH - PB + 18, m === 1 ? String(y) : MON[m - 1], { 'text-anchor': 'middle' }); }
+    [[199.55, 'Vollstau', 'var(--accent)'], [125, 'Haltelinie 125', 'var(--warn)'], [thrV, 'Regattagrenze', 'var(--good)'], [40, '40', 'var(--muted)']].forEach(([v, l, c]) => { el('line', { x1: PL, x2: W - PR, y1: sy(v), y2: sy(v), stroke: c, 'stroke-width': 1.2, 'stroke-dasharray': '6 4' }, svg); txt(svg, W - PR - 4, sy(v) - 5, l, { 'text-anchor': 'end', 'font-size': 11, fill: c, 'font-weight': 600 }); });
+    const band = (i, j, fill) => { let d = ''; for (let k = 0; k < H; k++) d += (k ? 'L' : 'M') + sx(T0 + k * DAY).toFixed(1) + ',' + sy(fan[k][i]).toFixed(1); for (let k = H - 1; k >= 0; k--) d += 'L' + sx(T0 + k * DAY).toFixed(1) + ',' + sy(fan[k][j]).toFixed(1); el('path', { d: d + 'Z', fill }, svg); };
+    band(0, 4, 'var(--band-soft)'); band(1, 3, 'var(--band)');
+    let d = ''; for (let k = 0; k < H; k++) d += (k ? 'L' : 'M') + sx(T0 + k * DAY).toFixed(1) + ',' + sy(fan[k][2]).toFixed(1); el('path', { d, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2.5 }, svg);
+    let h = ''; DATA.recent.forEach(([iso, v], i) => { h += (i ? 'L' : 'M') + sx(isoT(iso)).toFixed(1) + ',' + sy(v).toFixed(1); }); el('path', { d: h, fill: 'none', stroke: 'var(--fg)', 'stroke-width': 2 }, svg);
+    el('line', { x1: sx(T0), x2: sx(T0), y1: PT, y2: HH - PB, stroke: 'var(--fg)', opacity: 0.35 }, svg);
+    el('circle', { cx: sx(T0), cy: sy(V0), r: 5, fill: 'var(--accent)', stroke: 'var(--surface)', 'stroke-width': 2 }, svg);
+    txt(svg, sx(T0) + 8, HH - PB - 8, 'heute', { 'font-size': 11 });
+    const cur = el('line', { x1: 0, x2: 0, y1: PT, y2: HH - PB, stroke: 'var(--fg)', opacity: 0, 'pointer-events': 'none' }, svg);
+    const hit = el('rect', { x: sx(T0), y: PT, width: W - PR - sx(T0), height: HH - PT - PB, fill: 'transparent' }, svg), ro = $('readout');
+    const mv = ev => { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse()); const t = X0 + (p.x - PL) / (W - PL - PR) * (X1 - X0), k = Math.max(0, Math.min(H - 1, Math.round((t - T0) / DAY))); const f = FAN[k]; cur.setAttribute('x1', sx(T0 + k * DAY)); cur.setAttribute('x2', sx(T0 + k * DAY)); cur.setAttribute('opacity', 0.5); ro.hidden = false; ro.innerHTML = `<strong>${dstr(T0 + k * DAY, true)}</strong><br>Median ${fmt(f[2])} Mio. m³<br>8 von 10: ${fmt(f[0])} – ${fmt(f[4])}`; };
+    hit.addEventListener('pointermove', mv); hit.addEventListener('pointerdown', mv); hit.addEventListener('pointerleave', () => { ro.hidden = true; cur.setAttribute('opacity', 0); });
+  }
+
+  function drawWeser(sims, tg) {
+    const svg = $('weser'); svg.innerHTML = '';
+    const W = 1000, HH = 300, PL = 52, PR = 16, PT = 14, PB = 34;
+    const months = []; for (let m = 5; m <= 10; m++) months.push(m);
+    const vals = months.map(m => { const ks = []; for (let k = 0; k < H; k++) { const [y, mm] = Model3.ymd(T0 + k * DAY); if (y === season && mm === m) ks.push(k); }
+      const rest = Model3.pct(DATA.runs.map(r => ks.reduce((a, k) => a + r.r[k], 0) / ks.length), .5);
+      const out = Model3.pct(sims.map(s => ks.reduce((a, k) => a + s.out[k], 0) / ks.length), .5);
+      return [m, rest, out]; });
+    const vmax = Math.max(70, Math.ceil(Math.max(...vals.map(v => v[1] + v[2])) / 10) * 10);
+    const sy = v => PT + (1 - v / vmax) * (HH - PT - PB), bw = (W - PL - PR) / months.length;
+    for (let v = 0; v <= vmax; v += 20) { el('line', { x1: PL, x2: W - PR, y1: sy(v), y2: sy(v), stroke: 'var(--line)' }, svg); txt(svg, PL - 8, sy(v) + 4, v, { 'text-anchor': 'end', 'font-family': 'var(--mono)' }); }
+    txt(svg, 8, PT + 10, 'm³/s', { 'font-size': 11 });
+    vals.forEach(([m, rest, out], i) => {
+      const x = PL + i * bw + bw * 0.2, w = bw * 0.6;
+      el('rect', { x, y: sy(rest), width: w, height: sy(0) - sy(rest), fill: 'var(--band)', rx: 2 }, svg);
+      el('rect', { x, y: sy(rest + out), width: w, height: sy(rest) - sy(rest + out), fill: 'var(--warn)', rx: 2 }, svg);
+      txt(svg, x + w / 2, HH - PB + 18, MON[m - 1], { 'text-anchor': 'middle' });
+      txt(svg, x + w / 2, sy(rest + out) - 6, `${fmt(out, 0)}`, { 'text-anchor': 'middle', fill: 'var(--warn)', 'font-weight': 600, 'font-family': 'var(--mono)' });
+    });
+    el('line', { x1: PL, x2: W - PR, y1: sy(tg), y2: sy(tg), stroke: 'var(--fg)', 'stroke-width': 1.5 }, svg);
+    txt(svg, W - PR - 4, sy(tg) - 6, `Ziel ${tg} m³/s`, { 'text-anchor': 'end', fill: 'var(--fg)', 'font-size': 11 });
+  }
+
+  // ---------- Was-wäre-wenn ----------
+  function whatif() {
+    const limit = +$('wl').value, spar = +$('ws').value, [from, to] = $('wp').value.split('-').map(Number);
+    $('wl-val').textContent = `${limit} Mio. m³ · ${fmt(Model3.level(limit), 2)} m`; $('ws-val').textContent = `${spar} m³/s`;
+    const res = Object.entries(DATA.whatif).map(([y, rows]) => {
+      let V = rows[0][2], saved = 0, days = 0, cut = 0; const sim = [];
+      rows.forEach(([q, o, v], k) => { const m = Model3.ymd(Model3.utc(+y, 5, 1) + k * DAY)[1]; let o2 = o; if (V < limit && m >= from && m <= to && o > spar) { o2 = spar; days++; cut = Math.max(cut, o - spar); saved += (o - spar) * Model3.K; } sim.push(V); V = Math.max(0.5, Math.min(Model3.FULL, V + (q - o2) * Model3.K)); });
+      const at = k => k < rows.length ? [rows[k][2], sim[k]] : [rows[rows.length - 1][2], sim[sim.length - 1]];
+      return { y: +y, jul: at(75), sep: at(123), saved, days, cut };
+    });
+    const hit = res.filter(r => r.days > 0);
+    $('wi-sum').innerHTML = hit.length ? `In <strong>${hit.length} von ${res.length}</strong> Jahren hätte die Regel gegriffen. Im Mittel dieser Jahre wären am 1. September <strong>${fmt(hit.reduce((a, r) => a + r.sep[1] - r.sep[0], 0) / hit.length, 0)} Mio. m³</strong> mehr im See gewesen, an durchschnittlich ${fmt(hit.reduce((a, r) => a + r.days, 0) / hit.length, 0)} Tagen mit bis zu ${fmt(Math.max(...hit.map(r => r.cut)), 0)} m³/s weniger für die Weser.` : 'Mit diesen Einstellungen hätte die Regel in keinem Jahr gegriffen.';
+    $('wi').innerHTML = res.map(r => `<tr${r.days ? '' : ' class="muted"'}><td class="num">${r.y}</td><td class="r num">${fmt(r.jul[0])}</td><td class="r num">${fmt(r.jul[1])}</td><td class="r num">${fmt(r.sep[0])}</td><td class="r num"${r.sep[1] - r.sep[0] > 5 ? ' style="color:var(--good);font-weight:600"' : ''}>${fmt(r.sep[1])}</td><td class="r num">${fmt(r.saved)}</td><td class="r num">${r.days}</td><td class="r num">${r.cut ? '−' + fmt(r.cut, 0) + ' m³/s' : '–'}</td></tr>`).join('');
+    const svg = $('wichart'); svg.innerHTML = ''; const W = 1000, HH = 280, PL = 44, PR = 10, PT = 12, PB = 28, bw = (W - PL - PR) / res.length, sy = v => PT + (1 - v / 200) * (HH - PT - PB);
+    for (let v = 0; v <= 200; v += 50) { el('line', { x1: PL, x2: W - PR, y1: sy(v), y2: sy(v), stroke: 'var(--line)' }, svg); txt(svg, PL - 6, sy(v) + 4, v, { 'text-anchor': 'end', 'font-family': 'var(--mono)' }); }
+    res.forEach((r, i) => { const x = PL + i * bw; el('rect', { x: x + 2, y: sy(r.sep[0]), width: bw / 2 - 2, height: sy(0) - sy(r.sep[0]), fill: 'var(--muted)', rx: 1.5 }, svg); el('rect', { x: x + bw / 2, y: sy(r.sep[1]), width: bw / 2 - 2, height: sy(0) - sy(r.sep[1]), fill: 'var(--accent)', rx: 1.5 }, svg); if (r.y % 2 === 1) txt(svg, x + bw / 2, HH - 8, r.y, { 'text-anchor': 'middle', 'font-size': 11 }); });
+  }
+
+  // ---------- Weser 2015 ----------
+  (function bfg() {
+    const svg = $('bfg'), rows = DATA.bfg2015, W = 600, HH = 320, PL = 40, PR = 10, PT = 12, PB = 28, n = rows.length;
+    const sx = i => PL + i / (n - 1) * (W - PL - PR), sy = v => PT + (1 - v / 90) * (HH - PT - PB);
+    for (let v = 0; v <= 90; v += 30) { el('line', { x1: PL, x2: W - PR, y1: sy(v), y2: sy(v), stroke: 'var(--line)' }, svg); txt(svg, PL - 6, sy(v) + 4, v, { 'text-anchor': 'end', 'font-family': 'var(--mono)' }); }
+    let a = '', b = '';
+    rows.forEach(([, q, o], i) => { const rest = Math.max(0, q - (o ?? 0)); a += (i ? 'L' : 'M') + sx(i) + ',' + sy(rest); b += (i ? 'L' : 'M') + sx(i) + ',' + sy(Math.min(q, 90)); });
+    let ra = a; for (let i = n - 1; i >= 0; i--) ra += 'L' + sx(i) + ',' + sy(0); el('path', { d: ra + 'Z', fill: 'var(--band)' }, svg);
+    let rb = b; for (let i = n - 1; i >= 0; i--) { const [, q, o] = rows[i]; rb += 'L' + sx(i) + ',' + sy(Math.max(0, q - (o ?? 0))); } el('path', { d: rb + 'Z', fill: 'var(--warn)', opacity: 0.85 }, svg);
+    el('line', { x1: PL, x2: W - PR, y1: sy(55), y2: sy(55), stroke: 'var(--fg)', 'stroke-width': 1.5, 'stroke-dasharray': '6 4' }, svg);
+    rows.forEach(([iso], i) => { if (iso.endsWith('-01')) txt(svg, sx(i), HH - 8, MON[+iso.slice(5, 7) - 1], { 'text-anchor': 'start', 'font-size': 11 }); });
+    txt(svg, 8, PT + 8, 'm³/s', { 'font-size': 11 });
+    const e = DATA.rr; $('rr-quality').textContent = `Modellgüte: Eder Tages-NSE ${fmt(e.eder.nse_val, 2)} (Prüfzeitraum 2011–2026), Monats-NSE ${fmt(e.eder.nse_month_val, 2)}. Weser-Restgebiet NSE ${fmt(e.weser.nse_bfg, 2)} gegen die BfG-Tageswerte 2013–2015, mittlere Abweichung an ${e.weser.n_stuetztage} Stütztagen ${fmt(e.weser.mae_stuetztage, 1)} m³/s.`;
+  })();
+
+  // ---------- Bewertung ----------
+  (function skill() {
+    const LBL = { voll: 'Vollstau bis 1. Juni', regatta: 'Über 63 Mio. am 15. Juli', unter125: 'Unter 125 am 1. August' };
+    const sg = v => (v >= 0 ? '+' : '−') + fmt(Math.abs(v), 2);
+    const cell = ([, s, lo]) => { const c = lo > 0 && s >= 0.2 ? 'sk2' : lo > 0 ? 'sk1' : 'sk0'; return `<span class="${c}">${sg(s)}</span>`; };
+    $('sk-h').innerHTML = '<tr><th>Ereignis · Prognose vom</th>' + DATA.skill3.voll.map(r => `<th class="c">${r[0]}</th>`).join('') + '</tr>';
+    $('sk').innerHTML = Object.keys(LBL).map(k => `<tr><td>${LBL[k]}<br><span class="small muted">Stufe 2 / Stufe 3</span></td>${DATA.skill3[k].map((r, i) => `<td class="c num">${cell(DATA.skill2[k][i])}<br>${cell(r)}</td>`).join('')}</tr>`).join('');
+    const c2 = DATA.calib2, c3 = DATA.calib3, P = x => Math.round(x * 100) + ' %';
+    $('calib').textContent = `Kalibrierung (vorhergesagt / eingetreten): Vollstau Stufe 2 ${P(c2.voll[0])} / ${P(c2.voll[1])}, Stufe 3 ${P(c3.voll[0])} / ${P(c3.voll[1])} · Regatta Stufe 2 ${P(c2.regatta[0])} / ${P(c2.regatta[1])}, Stufe 3 ${P(c3.regatta[0])} / ${P(c3.regatta[1])} · Unter 125 Stufe 2 ${P(c2.unter125[0])} / ${P(c2.unter125[1])}, Stufe 3 ${P(c3.unter125[0])} / ${P(c3.unter125[1])}.`;
+    const cd = iso => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+    $('case').innerHTML = DATA.case2026.map(r => `<tr><td class="num">${cd(r.start)}</td><td class="r num">${fmt(r.V0)}</td><td class="r num">${fmt(r.s2[0])}</td><td class="r"><span class="chip ${r.s2[2] >= .85 ? 'hi' : r.s2[2] >= .6 ? 'mid' : 'lo'}">${pctStr(r.s2[2])}</span></td><td class="r num">${fmt(r.s3[0])}</td><td class="r"><span class="chip ${r.s3[2] >= .85 ? 'hi' : r.s3[2] >= .6 ? 'mid' : 'lo'}">${pctStr(r.s3[2])}</span></td></tr>`).join('');
+    $('decades').textContent = DATA.inflow_decade.map(d => `${d[0]}er ${fmt(d[1])} m³/s`).join(', ');
+    const svg = $('dd'), data = DATA.drawdown, W = 1000, HH = 240, PL = 44, PR = 10, PT = 12, PB = 28, bw = (W - PL - PR) / data.length, yy = v => PT + (1 - Math.max(v, 0) / 130) * (HH - PT - PB);
+    for (let v = 0; v <= 120; v += 40) { el('line', { x1: PL, x2: W - PR, y1: yy(v), y2: yy(v), stroke: 'var(--line)' }, svg); txt(svg, PL - 6, yy(v) + 4, v, { 'text-anchor': 'end', 'font-family': 'var(--mono)' }); }
+    data.forEach(([y, v], i) => { const x = PL + i * bw; el('rect', { x: x + 1.5, y: yy(v), width: bw - 3, height: Math.max(1, yy(0) - yy(v)), rx: 1.5, fill: v >= 75 ? 'var(--warn)' : 'var(--band)' }, svg); if (y % 5 === 0) txt(svg, x + bw / 2, HH - 8, y, { 'text-anchor': 'middle' }); });
+  })();
+
+  ['v0', 'thr', 'tg', 'reduced', 'h125'].forEach(id => $(id).addEventListener('input', compute));
+  ['wl', 'ws', 'wp'].forEach(id => $(id).addEventListener('input', whatif));
+  compute(); whatif();
+})();
+</script>
