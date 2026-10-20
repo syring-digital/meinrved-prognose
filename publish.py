@@ -69,17 +69,29 @@ def date_stats(ks):
 
 
 km, ka = kday(dt.date(sy, 5, 1)), kday(dt.date(sy, 8, 1))
+# Was die Haltelinie 125 kosten und bringen würde (je Szenario: Tage mit weniger Abgabe, größte Kürzung)
+cut_days = [sum(1 for k in range(H) if s[k][3] - sh[k][3] > 0.5) for s, sh in zip(sims, simsH)]
+cut_max = [max(s[k][3] - sh[k][3] for k in range(H)) for s, sh in zip(sims, simsH)]
+ks1 = kday(dt.date(sy, 9, 1))
+haltelinie = dict(
+    anteilBetroffen=round(sum(d > 0 for d in cut_days) / n, 2),
+    tageWeniger=round(pct([d for d in cut_days if d > 0] or [0], .5)),
+    maxWeniger=round(pct([m for m, d in zip(cut_max, cut_days) if d > 0] or [0], .5), 1),
+    september1=[round(pct([s[ks1][1] for s in sims], .5), 1), round(pct([s[ks1][1] for s in simsH], .5), 1)] if ks1 < H else None)
 voll = date_stats([first_day(s, lambda v: v >= 197, kday(dt.date(sy, 3, 1)), kday(dt.date(sy, 9, 30))) for s in sims])
 saison = dict(
     start=start.isoformat(), jahr=sy,
     inhalt=[[round(pct([s[k][1] for s in sims], p), 1) for p in (.1, .25, .5, .75, .9)] for k in range(H)],
     segelbar=[round(sum(s[k][1] >= GRENZE for s in sims) / n, 2) for k in range(H)],
     segelbarHaltelinie=[round(sum(s[k][1] >= GRENZE for s in simsH) / n, 2) for k in range(H)],
+    inhaltHaltelinie=[[round(pct([s[k][1] for s in simsH], p), 1) for p in (.1, .25, .5, .75, .9)] for k in range(H)],
+    haltelinie=haltelinie,
     grenze=dict(pegel=GRENZE_PEGEL, inhalt=round(GRENZE, 1)),
     kennzahlen=dict(
         tiefster=round(min(min(s[k][1] for k in range(min(120, H))) for s in sims), 1),
         ueber125=date_stats([first_day(s, lambda v: v >= 125) for s in sims]) if P['V0'] < 125 else None,
         vollstau=voll if voll else dict(median=None, frueh=None, spaet=None, anteil=0.0),
+        unter125Ab=date_stats([first_day(s, lambda v: v < 125, km) for s in sims]),
         unter125VorAugust=round(sum(first_day(s, lambda v: v < 125, km, ka - 1) is not None for s in sims) / n, 2),
         juli15Median=round(pct([s[kday(dt.date(sy, 7, 15))][1] for s in sims], .5), 1) if kday(dt.date(sy, 7, 15)) < H else None),
     guete=dict(regattaAbFebruar=0.33, vollstauAbApril=0.40, kalibrierungRegatta=[0.93, 0.90],
