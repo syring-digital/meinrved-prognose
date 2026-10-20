@@ -3,6 +3,15 @@
 Rechenkern und Auswertung für die Wasserstandsprognose. Gehört nicht zur App und wird von Xcode nicht gebaut.
 Konzeptseite (privat): https://claude.ai/artifact/T9mqoLaNTVtshVvmCEHezY
 
+## Täglicher Betrieb (GitHub)
+
+- Repository: https://github.com/syring-digital/meinrved-prognose (öffentlich, Spiegel dieses Ordners)
+- Datei für die App: https://syring-digital.github.io/meinrved-prognose/prognose.json
+- Workflow `.github/workflows/taeglich.yml`: täglich 06:15 und 11:45 UTC (`fetch.py` … `publish.py`), Rohdaten im Actions-Zwischenspeicher, Eingänge jedes Laufs im Branch `archiv`.
+- Änderungen hier → `./veroeffentlichen.sh "Beschreibung"` überträgt sie in das GitHub-Repository (Spiegel unter `~/Library/Application Support/MeinRVED-Prognose/repo`).
+- Lokal (Mac) liegen die Rohdaten außerhalb von iCloud unter `~/Library/Application Support/MeinRVED-Prognose/daten` (iCloud blockiert sonst gelegentlich Schreibzugriffe); anderer Ort per `PROGNOSE_DATEN`.
+- Manuell starten: `gh workflow run taeglich.yml -R syring-digital/meinrved-prognose`
+
 ## Ablauf
 
 Alle Befehle aus diesem Ordner, Python 3 ohne Zusatzpakete:
