@@ -123,3 +123,26 @@ p = os.path.join(OUT, 'app', 'prognose.json')
 json.dump(out, open(p, 'w'), ensure_ascii=False, separators=(',', ':'))
 print('->', p, os.path.getsize(p), 'Bytes |', 'über 40:', ueber40, '| Wendepunkt', out['wendepunkt'])
 print('Saison', sy, '| Vollstau', saison['kennzahlen']['vollstau'], '| 15.07. segelbar', saison['segelbar'][kday(dt.date(sy, 7, 15))], 'mit Haltelinie', saison['segelbarHaltelinie'][kday(dt.date(sy, 7, 15))])
+
+# --- Rückblick (0.19.0): echte Jahre Mai–Oktober für den Was-wäre-wenn-Rechner der App ---
+import sim
+jahre = {}
+for y in range(2003, start.year + 1):
+    d, q, o, rows = dt.date(y, 5, 1), None, None, []
+    while d <= min(dt.date(y, 10, 31), start - dt.timedelta(1)):
+        q = sim.inflow(d) if sim.inflow(d) is not None else q          # einzelne Lücken: Vortageswert
+        o = s3.D[d]['O'] if s3.D[d]['O'] is not None else o
+        rows.append([round(q, 2), round(o, 1), round(s3.D[d]['V'], 1)]); d += dt.timedelta(1)
+    jahre[str(y)] = rows
+rb = os.path.join(OUT, 'app', 'rueckblick.json')
+json.dump(dict(version=1, erstellt=out['erstellt'], beginn='05-01', felder=['zufluss', 'abgabe', 'inhalt'], jahre=jahre),
+          open(rb, 'w'), separators=(',', ':'))
+
+# --- Kurzdatei (0.19.0) für die Widgets: wenige Werte, schnell zu laden ---
+kurz = dict(version=1, erstellt=out['erstellt'], inhalt=P['V0'], pegel=P['level0'],
+            wendepunkt7=out['wendepunkt']['in7Tagen'], ueber40=(ueber40 or {}).get('median'),
+            vollstau=saison['kennzahlen']['vollstau']['anteil'], saisonStart=saison['start'], segelbar=saison['segelbar'],
+            vierWochen=[round(x[2], 1) for x in out['vierWochen']['inhalt']])
+kp = os.path.join(OUT, 'app', 'kurz.json')
+json.dump(kurz, open(kp, 'w'), separators=(',', ':'))
+print('->', rb, os.path.getsize(rb), 'Bytes |', kp, os.path.getsize(kp), 'Bytes')
