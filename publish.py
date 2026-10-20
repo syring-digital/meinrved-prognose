@@ -87,7 +87,6 @@ saison = dict(
     inhaltHaltelinie=[[round(pct([s[k][1] for s in simsH], p), 1) for p in (.1, .25, .5, .75, .9)] for k in range(H)],
     haltelinie=haltelinie,
     grenze=dict(pegel=GRENZE_PEGEL, inhalt=round(GRENZE, 1)),
-    gemessen=[[d.isoformat(), round(s3.D[d]['V'], 1)] for d in sorted(s3.D) if start - dt.timedelta(366) < d <= start and s3.D[d]['V'] is not None],
     kennzahlen=dict(
         tiefster=round(min(min(s[k][1] for k in range(min(120, H))) for s in sims), 1),
         ueber125=date_stats([first_day(s, lambda v: v >= 125) for s in sims]) if P['V0'] < 125 else None,
