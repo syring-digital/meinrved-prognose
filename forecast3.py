@@ -15,8 +15,9 @@ eps = json.load(open(os.path.join(OUT, 'dwd_eps.json')))
 live = json.load(open(os.path.join(OUT, 'live.json')))
 
 # Wetter vom Starttag an: Lücke zwischen letztem DWD-Messtag und Start aus dem EPS-Kontrolllauf, dann EPS
-assert s3.LAST_CLIM + dt.timedelta(1) >= start - dt.timedelta(0), 'Messdaten reichen nicht bis zum Start'
+assert (start - s3.LAST_CLIM).days <= 7, f'DWD-Messdaten zu alt ({s3.LAST_CLIM})'
 state_day = min(start, s3.LAST_CLIM + dt.timedelta(1))
+assert D.get(state_day, {}).get('V') is not None, f'kein Seeinhalt am {state_day}'
 members = []
 for m in range(40):
     fw = {}
