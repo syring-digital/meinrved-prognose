@@ -4,7 +4,7 @@
 # damit nie eine halbe Datei veröffentlicht wird.
 set -e
 cd "$(dirname "$0")"
-python3 fetch.py && python3 parse.py
+python3 fetch.py && python3 parse.py && python3 nachtrag.py
 python3 climate.py
 python3 dwd_forecast.py
 python3 live.py

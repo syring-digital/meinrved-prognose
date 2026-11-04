@@ -1,6 +1,7 @@
 # Täglicher Rechenlauf der Edersee-Prognose: Messwerte, DWD-Prognose, Pegel und WSA-Plan holen,
 # Ensemble rechnen, App-Datei über GitHub Pages veröffentlichen und die Eingänge im Branch „archiv“ ablegen.
-# Zeiten in UTC: 06:15 und 11:45 (Winter 07:15/12:45, Sommer 08:15/13:45 Uhr), nach dem 07:00-Wert von edersee.me.
+# Zeiten in UTC: 06:15 und 11:45 (Winter 07:15/12:45, Sommer 08:15/13:45 Uhr), jeweils kurz nach dem Lauf der zentralen Datensammlung
+# (meinrved-pegel, 06:00 und 11:30 UTC), aus der live.json und tageswerte.json gelesen werden: PEGELONLINE und das WSA-PDF werden nur dort abgerufen.
 name: Täglicher Rechenlauf
 on:
   schedule:
@@ -37,6 +38,7 @@ jobs:
         run: |
           python fetch.py
           python parse.py
+          python nachtrag.py
           python climate.py
           python dwd_forecast.py
           python live.py
